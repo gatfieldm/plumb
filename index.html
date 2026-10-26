@@ -1,0 +1,1763 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Plumb">
+<meta name="theme-color" content="#E9EEF2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0C1220" media="(prefers-color-scheme: dark)">
+<style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+</head>
+<body>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Plumb</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:wght@500;600;700&family=Atkinson+Hyperlegible:wght@400;700&family=Atkinson+Hyperlegible+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one narrow play column (header, mode and difficulty bar, HUD, square board, readout), with stats and players in the same column. */
+:root{
+  --paper:#E9EEF2;
+  --board:#F8FAFB;
+  --surface:#FFFFFF;
+  --grid:#E0E7EE;
+  --grid-strong:#BFCAD6;
+  --line:#CDD6E0;
+  --ink:#14213D;
+  --ink-2:#46546E;
+  --ink-3:#7A879D;
+  --pen:#D3306A;
+  --pen-soft:#F6D7E2;
+  --t1:#169A6B;
+  --t2:#D9A915;
+  --t3:#E0702A;
+  --t4:#A9B4C2;
+  --font-display:"Jost","Futura","Century Gothic","Avenir Next",sans-serif;
+  --font-body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"Atkinson Hyperlegible Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0C1220;--board:#111A2C;--surface:#152036;--grid:#1A253B;--grid-strong:#2A3854;--line:#24304A;
+    --ink:#E6ECF6;--ink-2:#A3AFC4;--ink-3:#6C7A93;--pen:#FF5C93;--pen-soft:#3A1A2A;
+    --t1:#2DC48B;--t2:#EEC23A;--t3:#F2873F;--t4:#3A4762;color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0C1220;--board:#111A2C;--surface:#152036;--grid:#1A253B;--grid-strong:#2A3854;--line:#24304A;
+  --ink:#E6ECF6;--ink-2:#A3AFC4;--ink-3:#6C7A93;--pen:#FF5C93;--pen-soft:#3A1A2A;
+  --t1:#2DC48B;--t2:#EEC23A;--t3:#F2873F;--t4:#3A4762;color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--paper);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+button,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--pen);outline-offset:2px}
+
+.app{max-width:600px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px 28px;display:flex;flex-direction:column;gap:12px}
+
+/* Header */
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:9px;font-family:var(--font-display);font-weight:600;font-size:28px;letter-spacing:-.015em;line-height:1;color:var(--ink)}
+.brand svg{width:20px;height:24px;flex:none;transform:translateY(-1px)}
+.who{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 12px 4px 4px;cursor:pointer;max-width:55%;min-width:0}
+.who .nm{font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.av{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:#fff;font:700 13px var(--font-body)}
+.av.lg{width:44px;height:44px;font-size:19px}
+
+.bar2{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.seg{display:flex;gap:2px;padding:3px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.seg button{border:0;background:none;padding:6px 11px;border-radius:5px;font-weight:600;font-size:14px;color:var(--ink-2);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.seg button[aria-selected="true"],.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.seg button:hover:not([aria-selected="true"]):not([aria-pressed="true"]){color:var(--ink)}
+.seg.small button{padding:5px 9px;font-size:13px}
+
+/* HUD */
+.hud{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:28px;flex-wrap:wrap}
+.hud-title{font-family:var(--font-display);font-weight:600;font-size:21px;line-height:1.1}
+.hud-title small{font-family:var(--font-body);font-weight:400;font-size:13px;color:var(--ink-3);margin-left:8px}
+.pips{display:flex;gap:5px}
+.pip{width:22px;height:22px;border-radius:4px;border:1.5px solid var(--grid-strong)}
+.pip.cur{border-color:var(--ink)}
+.pip.t-g{background:var(--t1);border-color:var(--t1)}
+.pip.t-y{background:var(--t2);border-color:var(--t2)}
+.pip.t-o{background:var(--t3);border-color:var(--t3)}
+.pip.t-m{background:var(--t4);border-color:var(--t4)}
+.hud-stats{display:flex;align-items:center;gap:14px;font-family:var(--font-mono);font-size:13px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.hud-stats b{color:var(--ink);font-weight:600}
+.lives{display:flex;gap:4px}
+.life{width:11px;height:11px;border-radius:50%;background:var(--pen)}
+.life.lost{background:none;border:1.5px solid var(--grid-strong)}
+.combo{color:var(--pen);font-weight:600}
+
+/* Board */
+.board{-webkit-touch-callout:none;position:relative;width:min(100%,56vh);width:min(100%,56dvh);aspect-ratio:1;max-width:100%;margin-inline:auto;background:var(--board);border:1px solid var(--grid-strong);border-radius:3px;touch-action:none;cursor:crosshair;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+.board canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.board.locked{cursor:pointer}
+.board.idle{cursor:default}
+.flash{position:absolute;left:50%;top:14px;transform:translateX(-50%);font-family:var(--font-display);font-weight:600;font-size:24px;color:var(--pen);background:var(--board);padding:2px 10px;border-radius:4px;pointer-events:none;opacity:0;transition:opacity .2s;white-space:nowrap}
+.flash.on{opacity:1}
+
+/* Readout */
+.readout{min-height:132px;display:flex;flex-direction:column;gap:10px}
+.kicker{font-size:13px;color:var(--ink-3)}
+.prompt .big{margin:2px 0 0;font-size:20px;font-weight:600;text-wrap:balance}
+.prompt .big b{font-family:var(--font-mono);color:var(--pen)}
+.prompt .sub{margin:4px 0 0;color:var(--ink-2);font-size:14px}
+.result{display:grid;grid-template-columns:1fr auto;align-items:end;gap:6px 14px}
+.score{display:flex;align-items:baseline;gap:10px}
+.score .num{font-family:var(--font-display);font-weight:600;font-size:50px;line-height:.95;color:var(--tier);font-variant-numeric:tabular-nums}
+.score .tier{font-weight:700;font-size:16px;color:var(--tier)}
+.meta{grid-column:1;color:var(--ink-2);font-size:14px}
+.meta b{font-family:var(--font-mono);color:var(--ink)}
+.result .btn{grid-column:2;grid-row:1 / span 2;align-self:center}
+.t-g{--tier:var(--t1)}.t-y{--tier:var(--t2)}.t-o{--tier:var(--t3)}.t-m{--tier:var(--ink-3)}
+
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:11px 16px;border-radius:6px;font-weight:600;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.btn:hover{border-color:var(--ink-3)}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.btn.primary:hover{filter:brightness(1.15)}
+.btn.small{padding:7px 11px;font-size:13px}
+.btn.block{width:100%;justify-content:center;padding:14px 16px;font-size:16px}
+.btn.danger{border-color:var(--pen);color:var(--pen)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+kbd{font:600 11px var(--font-mono);padding:1px 5px;border-radius:3px;border:1px solid currentColor;opacity:.6}
+
+.summary{display:flex;flex-direction:column;gap:12px}
+.sum-row{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.total{font-family:var(--font-display);font-weight:600;font-size:54px;line-height:.95;font-variant-numeric:tabular-nums}
+.total small{font-size:24px;color:var(--ink-3);margin-left:2px}
+.tiles{display:flex;gap:6px}
+.tile{width:44px;height:44px;border-radius:5px;display:grid;place-items:center;font:600 14px var(--font-mono);color:#fff;background:var(--tier)}
+.tile.t-m{background:var(--t4);color:var(--ink)}
+.facts{display:flex;flex-wrap:wrap;gap:6px 16px;color:var(--ink-2);font-size:14px}
+.facts b{font-family:var(--font-mono);color:var(--ink);font-weight:600}
+.facts .new{color:var(--pen);font-weight:700}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+.sharebox{margin:0;padding:10px 12px;border:1px dashed var(--grid-strong);border-radius:6px;font:13px/1.5 var(--font-mono);white-space:pre-wrap;word-break:break-all;user-select:all;-webkit-user-select:all}
+.next{margin:0;color:var(--ink-3);font-size:13px}
+.next span{font-family:var(--font-mono);color:var(--ink-2);font-variant-numeric:tabular-nums}
+
+/* Forms */
+.form{display:flex;flex-direction:column;gap:12px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label,.field .lbl{font-size:13px;font-weight:600;color:var(--ink-2)}
+.input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:6px;background:var(--surface);font-size:16px}
+.input:focus{border-color:var(--ink-3);outline:none}
+textarea.input{font:12px/1.4 var(--font-mono);min-height:84px;resize:vertical;word-break:break-all}
+.hint{font-size:12px;color:var(--ink-3)}
+.err{font-size:13px;color:var(--pen);min-height:1em}
+.swatches{display:flex;gap:8px;flex-wrap:wrap}
+.sw{width:30px;height:30px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;box-shadow:inset 0 0 0 2px var(--surface)}
+.sw[aria-pressed="true"]{border-color:var(--ink)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* Stats */
+.stats{display:flex;flex-direction:column;gap:18px}
+.acct{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);flex-wrap:wrap}
+.acct-main{flex:1;min-width:0}
+.acct-name{font-weight:700;font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acct-sub{font-size:13px;color:var(--ink-3)}
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.kpi{background:var(--surface);padding:12px 12px 10px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.kpi .v{font-family:var(--font-display);font-weight:600;font-size:30px;line-height:1;font-variant-numeric:tabular-nums}
+.kpi .v small{font-size:16px;color:var(--ink-3)}
+.kpi .l{font-size:12px;color:var(--ink-3)}
+.panel{display:flex;flex-direction:column;gap:10px;min-width:0}
+.panel h2{margin:0;font-family:var(--font-display);font-weight:600;font-size:19px;text-wrap:balance}
+.panel h2 span{font-family:var(--font-body);font-weight:400;font-size:13px;color:var(--ink-3);margin-left:6px}
+.phead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.tbl-wrap{overflow-x:auto}
+.tbl{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+.tbl th{font:400 12px var(--font-body);color:var(--ink-3);text-align:right;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{text-align:right;padding:8px;border-bottom:1px solid var(--line);font-family:var(--font-mono);white-space:nowrap}
+.tbl th:first-child,.tbl td:first-child{text-align:left;font-family:var(--font-body);font-weight:600;padding-left:0}
+.bars{display:flex;flex-direction:column;gap:5px}
+.bar{display:grid;grid-template-columns:76px 1fr 48px;align-items:center;gap:10px;font-size:13px}
+.bar .lab{font-family:var(--font-mono);color:var(--ink-2);font-variant-numeric:tabular-nums}
+.bar .track{height:18px;background:var(--grid);border-radius:3px;overflow:hidden}
+.bar .fill{display:block;height:100%;background:var(--ink-3);border-radius:3px}
+.bar.hot .fill{background:var(--pen)}
+.bar .n{font-family:var(--font-mono);text-align:right;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;max-width:340px}
+.cal .d{aspect-ratio:1;border-radius:3px;border:1px solid var(--grid-strong);max-width:100%}
+.cal .d.t-g{background:var(--t1);border-color:var(--t1)}
+.cal .d.t-y{background:var(--t2);border-color:var(--t2)}
+.cal .d.t-o{background:var(--t3);border-color:var(--t3)}
+.cal .d.t-m{background:var(--t4);border-color:var(--t4)}
+.cal .d.today{outline:2px solid var(--ink);outline-offset:1px}
+.cal-dow{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;max-width:340px;font:10px var(--font-mono);color:var(--ink-3);text-align:center}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--ink-3)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.chart{width:100%;height:auto;display:block}
+.runs{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.run{display:grid;grid-template-columns:62px 1fr auto;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+.run .when{font-family:var(--font-mono);font-size:12px;color:var(--ink-3)}
+.run .what{min-width:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.run .sq{display:flex;gap:2px}
+.run .sq i{width:10px;height:10px;border-radius:2px;background:var(--tier)}
+.run .sq i.t-m{background:var(--t4)}
+.run .pts{font-family:var(--font-mono);font-weight:600;font-variant-numeric:tabular-nums}
+.dtag{font:400 12px var(--font-body);padding:1px 6px;border-radius:3px;border:1px solid var(--line);color:var(--ink-2)}
+.lb{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.lb-row{display:grid;grid-template-columns:22px 28px 1fr auto;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px}
+.lb-row .av{width:24px;height:24px;font-size:11px}
+.lb-row .rk{font-family:var(--font-mono);color:var(--ink-3);text-align:right}
+.lb-row .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lb-row .sc{font-family:var(--font-mono);font-weight:600;font-variant-numeric:tabular-nums}
+.lb-row.me .nm{font-weight:700}
+.lb-row.me .rk{color:var(--pen)}
+.plist{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.prow{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.prow .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.prow .nm small{font-weight:400;color:var(--ink-3);margin-left:6px}
+.manage{display:flex;flex-direction:column;gap:16px;padding:14px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.manage h3{margin:0;font-size:14px;font-weight:700}
+.empty{padding:16px;border:1px dashed var(--grid-strong);border-radius:8px;color:var(--ink-2);font-size:14px;display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media (max-width:560px){.two{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.foot{color:var(--ink-3);font-size:12px;text-align:center;margin:0}
+
+/* Header swap: brand on home/tabs, Home button inside a game */
+.top{min-height:36px}
+.top-r{display:flex;align-items:center;gap:8px;min-width:0}
+.top-r .who{max-width:none}
+#diagBtn{padding:5px 9px;font-size:12px;touch-action:manipulation}
+#diagBtn[aria-pressed="true"]{border-color:var(--pen);color:var(--pen)}
+button.brand{border:0;background:none;padding:0;cursor:pointer}
+.back{display:inline-flex;align-items:center;gap:2px;border:0;background:none;padding:6px 10px 6px 0;font-weight:600;font-size:16px;color:var(--ink);cursor:pointer;border-radius:6px}
+.back svg{width:20px;height:20px}
+.play{display:flex;flex-direction:column;gap:12px}
+
+/* Home */
+.home{display:flex;flex-direction:column;gap:16px}
+.greet{margin:-2px 0 0;color:var(--ink-2);font-size:15px}
+.greet b{color:var(--ink)}
+.toy{-webkit-touch-callout:none;position:relative;width:min(100%,40dvh,360px);aspect-ratio:1;max-width:100%;margin-inline:auto;background:var(--board);border:1px solid var(--grid-strong);border-radius:3px;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+.toy.dragging{cursor:grabbing}
+.toy canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.toy-row{display:flex;justify-content:center;align-items:stretch;gap:10px;max-width:100%}
+.toy-row .toy{margin-inline:0}
+.toy-row.slider .toy{width:min(100% - 54px,40dvh,360px)}
+.wslider{width:44px;flex:none;display:flex;flex-direction:column;align-items:center;gap:4px;padding-block:2px;cursor:ns-resize;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;border-radius:8px;transition:opacity .2s}
+.wslider.off{opacity:.45;cursor:default}
+.ws-val{font:600 13px var(--font-mono);color:var(--pen);font-variant-numeric:tabular-nums;min-height:18px}
+.wslider.off .ws-val{color:var(--ink-3)}
+.ws-track{position:relative;flex:1;width:8px;border-radius:4px;background:var(--grid);margin:12px 0}
+.ws-fill{position:absolute;left:0;right:0;bottom:0;border-radius:4px;background:var(--pen)}
+.ws-thumb{position:absolute;left:50%;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;background:var(--surface);border:2px solid var(--pen)}
+.wslider.off .ws-fill{background:var(--grid-strong)}
+.wslider.off .ws-thumb{border-color:var(--grid-strong)}
+.wslider.hint .ws-thumb{animation:wsPulse 1.5s ease-in-out infinite}
+@keyframes wsPulse{50%{box-shadow:0 0 0 8px var(--pen-soft)}}
+.ws-cap{font-size:11px;color:var(--ink-3)}
+.toy-note{margin:-6px 0 0;text-align:center;font-size:13px;color:var(--ink-2);min-height:19px;text-wrap:balance}
+.toy-note b{font-family:var(--font-mono);color:var(--pen)}
+.toy-mode{display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:var(--ink-3);margin-top:-6px}
+.toy-hint{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);font-size:12px;color:var(--ink-2);background:var(--board);padding:1px 9px;border-radius:999px;border:1px solid var(--grid);pointer-events:none;transition:opacity .3s ease-in;white-space:nowrap}
+.toy-hint.gone{opacity:0}
+.home-main{display:flex;flex-direction:column;gap:14px}
+.cta{display:flex;flex-direction:column;gap:6px}
+.cta-sub{margin:0;text-align:center;font-size:13px;color:var(--ink-3)}
+.dailies{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.dcard{display:flex;flex-direction:column;gap:7px;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:10px 10px 11px;cursor:pointer;min-width:0;transition:transform .12s ease-out,border-color .2s,box-shadow .2s}
+.dcard:hover{border-color:var(--ink-3)}
+.dcard:active{transform:scale(.97)}
+.dcard.is-next{border-color:var(--pen);box-shadow:0 0 0 3px var(--pen-soft)}
+.dc-name{font-family:var(--font-display);font-weight:600;font-size:17px;line-height:1.1}
+.dc-mid{font-family:var(--font-display);font-weight:600;font-size:24px;line-height:1;font-variant-numeric:tabular-nums;color:var(--ink-2);white-space:nowrap}
+.dc-mid small{font-size:13px;color:var(--ink-3);margin-left:1px}
+.dcard.done .dc-mid{color:var(--tier)}
+.dcard.done.t-m .dc-mid{color:var(--ink-2)}
+.dc-foot{font-size:12px;color:var(--ink-3);min-height:14px;display:flex;align-items:center;gap:2px;flex-wrap:wrap}
+.dcard.is-next .dc-foot{color:var(--pen);font-weight:700}
+.dc-foot i{flex:none;display:block;width:9px;height:9px;border-radius:2px;background:var(--tier)}
+.dc-foot i.t-m{background:var(--t4)}
+.dc-foot i.empty{background:none;border:1.5px solid var(--grid-strong)}
+.ecard{display:flex;flex-direction:column;gap:10px;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:12px}
+.ec-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.ec-title{font-family:var(--font-display);font-weight:600;font-size:19px}
+.ec-best{margin:0;font-size:14px;color:var(--ink-2)}
+.ec-best b{font-family:var(--font-mono);color:var(--ink)}
+.alldone{align-items:center;text-align:center;gap:8px;padding:2px 0 4px}
+.cd-big{font-family:var(--font-display);font-weight:600;font-size:44px;line-height:1;font-variant-numeric:tabular-nums}
+.alldone .actions{justify-content:center}
+.alldone .sharebox{text-align:left;align-self:stretch}
+.vtitle{margin:0;font-family:var(--font-display);font-weight:600;font-size:26px;line-height:1.1}
+
+/* Bottom tabs */
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.tabs-in{max-width:600px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr)}
+.tabs button{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0 9px;font-size:12px;font-weight:600;color:var(--ink-3);cursor:pointer}
+.tabs button svg{width:22px;height:22px}
+.tabs button[aria-current="page"]{color:var(--ink)}
+body.with-tabs .app{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+
+/* Small feedback motion */
+.btn{transition:transform .1s ease-out}
+.btn:active:not(:disabled){transform:translateY(2px)}
+.btn.wait{opacity:.5}
+.shake{animation:shake .32s ease-in-out}
+@keyframes shake{20%{transform:translateX(-6px)}40%{transform:translateX(5px)}60%{transform:translateX(-4px)}80%{transform:translateX(2px)}}
+.life.drain{animation:lifeDrain .55s ease-in}
+@keyframes lifeDrain{0%{background:var(--pen);border:0;transform:none}15%{transform:translateX(-3px)}30%{transform:translateX(3px)}45%{transform:translateX(-2px);background:var(--pen)}100%{transform:none}}
+
+.diag{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:11px/1.4 var(--font-mono);color:var(--ink-2);min-width:0}
+.diag pre{margin:4px 0 0;white-space:pre-wrap;word-break:break-word;font:inherit;user-select:text;-webkit-user-select:text}
+.diag .row{gap:6px}
+@media (prefers-reduced-motion: reduce){.flash{transition:none}.dcard,.toy-hint,.btn{transition:none}.shake,.life.drain,.wslider.hint .ws-thumb{animation:none}.wslider{transition:none}}
+</style>
+
+<div class="app">
+  <header class="top">
+    <button class="brand" id="brand" type="button" aria-label="Plumb home"><svg viewBox="0 0 20 24" aria-hidden="true"><line x1="10" y1="0" x2="10" y2="8" stroke="currentColor" stroke-width="1.8"/><path d="M6 8.5 H14 V11 L10 23 L6 11 Z" fill="currentColor"/></svg>Plumb</button>
+    <button class="back" id="backBtn" type="button" hidden><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Home</button>
+    <span class="top-r"><button class="btn small" id="diagBtn" type="button" aria-pressed="false">Touch log</button>
+    <button class="who" id="who" type="button" hidden aria-label="Players and settings"><span class="av" id="whoAv"></span><span class="nm" id="whoName"></span></button></span>
+  </header>
+
+  <section id="home" class="home">
+    <p class="greet" id="greet"></p>
+    <div class="toy-row" id="toyRow">
+      <div class="toy" id="toy" role="img" aria-label="Practice board. Drag a dot to move it. Tap a dot to select it, then change its weight. The center of mass moves with it."><canvas id="toyCv"></canvas></div>
+      <div class="wslider off" id="wslider" role="slider" tabindex="0" aria-label="Weight of the selected dot" aria-valuemin="1" aria-valuemax="5" aria-valuenow="1" aria-disabled="true" hidden>
+        <span class="ws-val" id="wsVal">–</span>
+        <div class="ws-track" id="wsTrack"><span class="ws-fill" id="wsFill"></span><span class="ws-thumb" id="wsThumb"></span></div>
+        <span class="ws-cap">Weight</span>
+      </div>
+    </div>
+    <p class="toy-note" id="toyNote" aria-live="polite"></p>
+    <div class="home-main" id="homeMain"></div>
+  </section>
+
+  <section id="play" class="play" hidden>
+    <div class="hud" id="hud"></div>
+    <div class="board" id="board" tabindex="0" aria-label="Game board. Tap where you think the center of mass is. Arrow keys move your marker, Enter locks it in.">
+      <canvas id="cv"></canvas>
+      <div class="flash" id="flash">Bullseye</div>
+    </div>
+    <div class="readout" id="readout" aria-live="polite"></div>
+  </section>
+
+  <section id="stats" class="stats" hidden></section>
+  <section id="lb" class="stats" hidden></section>
+  <div class="diag" id="diag" hidden><div class="row"><b style="color:var(--ink)">Touch log</b><button class="btn small" id="diagCopy" type="button">Copy log</button><button class="btn small" id="diagClear" type="button">Clear</button><button class="btn small" id="diagClose" type="button">Close</button></div><pre id="diagOut"></pre><pre class="sharebox" hidden></pre></div>
+  <p class="foot" id="foot"></p>
+</div>
+
+
+<nav class="tabs" id="tabs" aria-label="Sections" hidden><div class="tabs-in">
+  <button type="button" data-tab="home"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/></svg>Play</button>
+  <button type="button" data-tab="stats"><svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><rect x="4" y="12" width="4" height="8" rx="1"/><rect x="10" y="7" width="4" height="13" rx="1"/><rect x="16" y="4" width="4" height="16" rx="1"/></svg>Stats</button>
+  <button type="button" data-tab="lb"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 20V13h6v7M9 20V8h6v12M15 20v-9h6v9M2 20h20"/></svg>Leaderboard</button>
+</div></nav>
+</div>
+
+<script>
+(() => {
+"use strict";
+
+/* ---------- constants ---------- */
+const LAUNCH = "2026-10-25";
+const LS_INDEX = "centroids.players.v2";
+const LS_PLAYER = id => "centroids.player.v2." + id;
+const LS_PROGRESS = (id, diff) => "centroids.progress.v2." + id + "." + diff;
+const LS_V1 = "centroids.profile.v1";
+const MAX_RECENT = 80;
+const ENDLESS_LIVES = 3;
+const BULLSEYE = 0.0075;          // inside 0.75% of the board side
+const HALF_CREDIT = 0.08;         // an 8% miss earns 50
+const DIFF_KEYS = ["easy", "normal", "hard"];
+const DIFFS = {
+  easy:   { label: "Easy",   grid: true,  weighted: false, daily: [2, 2, 3, 3, 4], dots: r => r <= 4 ? 2 : r <= 9 ? 3 : r <= 15 ? 4 : 5, fadeFrom: 20 },
+  normal: { label: "Normal", grid: false, weighted: false, daily: [2, 3, 3, 4, 5], dots: r => r <= 3 ? 2 : r <= 7 ? 3 : r <= 12 ? 4 : 5, fadeFrom: 13 },
+  hard:   { label: "Hard",   grid: false, weighted: true,  daily: [2, 3, 4, 4, 5], dots: r => r <= 2 ? 2 : r <= 5 ? 3 : r <= 9 ? 4 : 5, fadeFrom: 10 }
+};
+const COLORS = ["#D3306A", "#1F6FD1", "#14916A", "#C9780E", "#7A4FD6", "#0D8796"];
+
+/* ---------- utils ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = n => Math.round(n).toLocaleString("en-US");
+const avg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0;
+// Looked up once; .matches stays current if the setting changes.
+const rmMQ = window.matchMedia ? matchMedia("(prefers-reduced-motion: reduce)") : null;
+let rmNow = !!(rmMQ && rmMQ.matches);
+if (rmMQ && rmMQ.addEventListener) rmMQ.addEventListener("change", () => { rmNow = rmMQ.matches; });
+const reduceMotion = () => rmNow;
+function ymd(d = new Date()) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function dayIndex(s) { const [y, m, d] = s.split("-").map(Number); return Math.round(Date.UTC(y, m - 1, d) / 864e5); }
+function fromIndex(i) { const d = new Date(i * 864e5); return d.getUTCFullYear() + "-" + String(d.getUTCMonth() + 1).padStart(2, "0") + "-" + String(d.getUTCDate()).padStart(2, "0"); }
+const prettyCache = new Map();
+function prettyDate(s) { if (prettyCache.has(s)) return prettyCache.get(s); const out = prettyDate0(s); prettyCache.set(s, out); return out; }
+function prettyDate0(s) { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric" }); }
+const dailyNumber = date => dayIndex(date) - dayIndex(LAUNCH) + 1;
+function hashStr(s) { let h = 1779033703 ^ s.length; for (let i = 0; i < s.length; i++) { h = Math.imul(h ^ s.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); } h = Math.imul(h ^ (h >>> 16), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); return (h ^= h >>> 16) >>> 0; }
+function mulberry32(a) { return function () { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const newId = () => "p_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+/* ---------- geometry + scoring ---------- */
+function centroid(pts) { let x = 0, y = 0, m = 0; for (const p of pts) { const w = p.m || 1; x += p.x * w; y += p.y * w; m += w; } return { x: x / m, y: y / m }; }
+function genPoints(n, rng, weighted) {
+  const minSep = (n <= 3 ? 0.18 : 0.14) + (weighted ? 0.03 : 0);
+  for (let a = 0; a < 400; a++) {
+    const pts = []; let tries = 0;
+    while (pts.length < n && tries < 500) {
+      tries++;
+      const p = { x: +(0.09 + rng() * 0.82).toFixed(4), y: +(0.09 + rng() * 0.82).toFixed(4) };
+      if (pts.every(q => Math.hypot(p.x - q.x, p.y - q.y) >= minSep)) pts.push(p);
+    }
+    if (pts.length < n) continue;
+    if (weighted) {
+      for (const p of pts) p.m = 1 + Math.floor(rng() * 4);
+      if (pts.every(p => p.m === pts[0].m)) pts[0].m = (pts[0].m % 4) + 1;
+    }
+    const c = centroid(pts);
+    if (c.x < 0.18 || c.x > 0.82 || c.y < 0.18 || c.y > 0.82) continue;
+    if (n >= 3 && pts.some(q => Math.hypot(q.x - c.x, q.y - c.y) < 0.07)) continue;
+    return pts;
+  }
+  return Array.from({ length: n }, (_, i) => ({ x: 0.5 + 0.3 * Math.cos(i * 2 * Math.PI / n), y: 0.5 + 0.3 * Math.sin(i * 2 * Math.PI / n), m: weighted ? 1 + (i % 4) : undefined }));
+}
+// 100 only inside the bullseye; everything else tops out at 99.
+function scoreFor(d) { return d < BULLSEYE ? 100 : Math.min(99, Math.round(100 * Math.pow(2, -Math.pow(d / HALF_CREDIT, 2)))); }
+function tierOf(s) { return s >= 90 ? "g" : s >= 75 ? "y" : s >= 60 ? "o" : "m"; }
+function tierLabel(s) { return s === 100 ? "Bullseye" : s >= 90 ? "Dead on" : s >= 75 ? "Close" : s >= 60 ? "Off" : "Miss"; }
+const EMOJI = { g: "🟩", y: "🟨", o: "🟧", m: "⬛" };
+function fadeFor(diff, r) { const f = DIFFS[diff].fadeFrom; return r < f ? 0 : Math.max(700, 2400 - (r - f) * 120); }
+
+/* ---------- storage (this device) ---------- */
+const LS = {
+  ok: (() => { try { localStorage.setItem("centroids.t", "1"); localStorage.removeItem("centroids.t"); return true; } catch { return false; } })(),
+  get(k) { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : null; } catch { return null; } },
+  set(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } }
+};
+
+/* ---------- player profiles ---------- */
+const blankEndless = () => ({ best: 0, bestRound: 0, runs: 0 });
+function blankProfile(name, color, diff) {
+  return { v: 2, id: newId(), name, color, createdAt: Date.now(), updatedAt: Date.now(),
+    settings: { difficulty: diff || "normal" },
+    daily: { streak: 0, bestStreak: 0, lastDate: null, history: {} },
+    endless: { easy: blankEndless(), normal: blankEndless(), hard: blankEndless() },
+    totals: { rounds: 0, bullseyes: 0, errSum: 0, scoreSum: 0 },
+    recent: [] };
+}
+function normalizeProfile(p) {
+  if (!p || typeof p !== "object" || p.v !== 2 || typeof p.id !== "string" || typeof p.name !== "string") return null;
+  const b = blankProfile(p.name, p.color, (p.settings || {}).difficulty);
+  const out = { ...b, ...p, settings: { ...b.settings, ...(p.settings || {}) },
+    daily: { ...b.daily, ...(p.daily || {}), history: { ...((p.daily || {}).history || {}) } },
+    endless: { ...b.endless }, totals: { ...b.totals, ...(p.totals || {}) },
+    recent: Array.isArray(p.recent) ? p.recent.slice(0, MAX_RECENT) : [] };
+  for (const k of DIFF_KEYS) out.endless[k] = { ...blankEndless(), ...((p.endless || {})[k] || {}) };
+  if (!DIFF_KEYS.includes(out.settings.difficulty)) out.settings.difficulty = "normal";
+  if (!COLORS.includes(out.color)) out.color = COLORS[0];
+  out.name = String(out.name).slice(0, 16);
+  return out;
+}
+function migrateV1(p) {
+  const old = LS.get(LS_V1); if (!old || !old.daily) return;
+  for (const [d, h] of Object.entries(old.daily.history || {})) p.daily.history[d] = { normal: { ...h, n: DIFFS.normal.daily } };
+  Object.assign(p.daily, { streak: old.daily.streak || 0, bestStreak: old.daily.bestStreak || 0, lastDate: old.daily.lastDate || null });
+  if (old.endless) p.endless.normal = { ...blankEndless(), best: old.endless.best || 0, bestRound: old.endless.bestRound || 0, runs: old.endless.runs || 0 };
+  if (old.totals) p.totals = { ...p.totals, ...old.totals };
+  p.recent = (old.recent || []).map(r => ({ ...r, diff: "normal" })).slice(0, MAX_RECENT);
+  LS.set(LS_V1, null);
+}
+const Players = {
+  index: LS.get(LS_INDEX) || { active: null, list: [] },
+  saveIndex() { LS.set(LS_INDEX, this.index); },
+  load(id) { return normalizeProfile(LS.get(LS_PLAYER(id))); },
+  save(p) { p.updatedAt = Date.now(); LS.set(LS_PLAYER(p.id), p); this.upsertMeta(p); },
+  upsertMeta(p) {
+    const i = this.index.list.findIndex(x => x.id === p.id), meta = { id: p.id, name: p.name, color: p.color };
+    if (i < 0) this.index.list.push(meta); else this.index.list[i] = meta;
+    this.saveIndex();
+  },
+  nameTaken(name, exceptId) { const k = name.trim().toLowerCase(); return this.index.list.some(x => x.id !== exceptId && x.name.toLowerCase() === k); },
+  remove(id) {
+    this.index.list = this.index.list.filter(x => x.id !== id);
+    if (this.index.active === id) this.index.active = this.index.list[0] ? this.index.list[0].id : null;
+    LS.set(LS_PLAYER(id), null); for (const d of DIFF_KEYS) LS.set(LS_PROGRESS(id, d), null);
+    this.saveIndex();
+  }
+};
+function validName(name, exceptId) {
+  const n = name.trim();
+  if (n.length < 2) return "Use at least 2 characters.";
+  if (n.length > 16) return "Keep it to 16 characters or fewer.";
+  if (!/^[\p{L}\p{N} _.\-]+$/u.test(n)) return "Letters, numbers, spaces, dots, dashes and underscores only.";
+  if (Players.nameTaken(n, exceptId)) return "Another player on this device already has that name.";
+  return "";
+}
+function encodeProfile(p) {
+  const bytes = new TextEncoder().encode(JSON.stringify(p)); let bin = "";
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return "PLUMB2." + btoa(bin);
+}
+function decodeProfile(code) {
+  const c = code.replace(/\s+/g, "");
+  const prefix = c.startsWith("PLUMB2.") ? "PLUMB2." : c.startsWith("CENTROIDS2.") ? "CENTROIDS2." : null; // older codes still import
+  if (!prefix) throw new Error("That isn't a Plumb transfer code. Codes start with PLUMB2.");
+  let obj; try { const bin = atob(c.slice(prefix.length)); obj = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, ch => ch.charCodeAt(0)))); }
+  catch { throw new Error("The code is incomplete or damaged. Copy the whole code and try again."); }
+  const p = normalizeProfile(obj); if (!p) throw new Error("The code doesn't contain a player profile.");
+  return p;
+}
+function currentStreak(p) {
+  if (!p.daily.lastDate) return 0;
+  return dayIndex(ymd()) - dayIndex(p.daily.lastDate) <= 1 ? p.daily.streak : 0;
+}
+
+/* ---------- state ---------- */
+const state = { view: "home", playDiff: null, popAt: 0, lbDiff: null, profile: null, games: {}, aim: null, down: false, finger: null, touch: !!(window.matchMedia && matchMedia("(pointer: coarse)").matches), statsDiff: "all", manage: false, notice: "" };
+const defaultDiff = () => state.profile ? state.profile.settings.difficulty : "normal";
+const diff = () => state.playDiff || defaultDiff();
+const isGame = v => v === "daily" || v === "endless";
+const gameKey = (view = state.view, d = diff()) => view + ":" + d;
+const game = () => state.games[gameKey()];
+
+function newDaily(d) {
+  const date = ymd(), cfg = DIFFS[d];
+  const rng = mulberry32(hashStr("centroids:" + date + ":" + d));
+  const rounds = cfg.daily.map(n => ({ pts: genPoints(n, rng, cfg.weighted), fade: 0, shownAt: 0 }));
+  const g = { mode: "daily", diff: d, date, num: dailyNumber(date), rounds, results: [], idx: 0, phase: "aim", revealAt: 0 };
+  const p = state.profile;
+  const hist = p && p.daily.history[date] && p.daily.history[date][d];
+  const prog = p ? LS.get(LS_PROGRESS(p.id, d)) : null;
+  if (hist) {
+    g.phase = "done"; g.idx = 4;
+    g.results = hist.s.map((s, i) => ({ s, d: hist.e[i], c: centroid(rounds[i].pts), guess: hist.g && hist.g[i] ? { x: hist.g[i][0], y: hist.g[i][1] } : null }));
+  } else if (prog && prog.date === date && Array.isArray(prog.results)) {
+    g.results = prog.results.slice(0, 5);
+    g.idx = Math.min(g.results.length, 4);
+    if (g.results.length >= 5) g.phase = "reveal";
+  }
+  g.rounds[g.idx].shownAt = performance.now();
+  return g;
+}
+function newEndless(d) {
+  const g = { mode: "endless", diff: d, rounds: [], results: [], idx: 0, phase: "aim", revealAt: 0, lives: ENDLESS_LIVES, combo: 1, total: 0, isBest: false };
+  pushEndlessRound(g); return g;
+}
+function pushEndlessRound(g) {
+  const r = g.rounds.length + 1, cfg = DIFFS[g.diff];
+  g.rounds.push({ pts: genPoints(cfg.dots(r), Math.random, cfg.weighted), fade: fadeFor(g.diff, r), shownAt: performance.now() });
+  g.idx = g.rounds.length - 1; g.phase = "aim";
+}
+function ensureGame() {
+  if (!isGame(state.view) || !state.profile) return null;
+  const k = gameKey();
+  let g = state.games[k];
+  if (state.view === "daily" && (!g || g.date !== ymd())) g = state.games[k] = newDaily(diff());
+  if (state.view === "endless" && !g) g = state.games[k] = newEndless(diff());
+  return g;
+}
+
+/* ---------- play flow ---------- */
+function commit(p) {
+  const g = game(); if (!g || g.phase !== "aim") return;
+  const r = g.rounds[g.idx], c = centroid(r.pts);
+  const d = Math.hypot(p.x - c.x, p.y - c.y), s = scoreFor(d);
+  const res = { guess: { x: +p.x.toFixed(4), y: +p.y.toFixed(4) }, c, d: +d.toFixed(5), s };
+  if (g.mode === "endless") {
+    res.gained = Math.round(s * g.combo); res.combo = g.combo; g.total += res.gained;
+    if (s < 60) { g.lives -= 1; res.lifeLost = true; }
+    g.combo = s >= 85 ? Math.min(3, +(g.combo + 0.25).toFixed(2)) : 1;
+  }
+  g.results[g.idx] = res; g.phase = "reveal"; g.revealAt = performance.now();
+  state.aim = null; state.down = false; state.finger = null;
+  if (g.mode === "daily") LS.set(LS_PROGRESS(state.profile.id, g.diff), { date: g.date, results: g.results });
+  if (s === 100) { flash("Bullseye"); buzz([12, 40, 24]); } else buzz(10);
+  kick(revealDur(r) + 900); renderPlay();
+}
+function advance() {
+  const g = game(); if (!g || g.phase !== "reveal") return;
+  if (performance.now() - g.revealAt < 300) return;
+  if (g.mode === "daily") {
+    if (g.idx >= 4) { finishDaily(g); return; }
+    g.idx += 1; g.phase = "aim"; g.rounds[g.idx].shownAt = performance.now();
+  } else {
+    if (g.lives <= 0) { finishEndless(g); return; }
+    pushEndlessRound(g);
+  }
+  kick(Math.max(700, g.rounds[g.idx].fade ? g.rounds[g.idx].fade + 500 : 0)); renderPlay();
+}
+// Tapping during the reveal jumps to its end state; the next tap moves on.
+function tapReveal() {
+  const g = game(); if (!g || g.phase !== "reveal") return;
+  if (!reduceMotion() && performance.now() - g.revealAt < revealDur(g.rounds[g.idx])) { g.revealAt = performance.now() - 9999; countSkip(); redraw(); return; }
+  advance();
+}
+const revealDur = r => (r.pts.length - 1) * 90 + 760;
+function buzz(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch {} }
+function addTotals(p, results) { for (const r of results) { p.totals.rounds++; p.totals.errSum += r.d; p.totals.scoreSum += r.s; if (r.s === 100) p.totals.bullseyes++; } }
+function finishDaily(g) {
+  const p = state.profile;
+  const day = p.daily.history[g.date] || (p.daily.history[g.date] = {});
+  if (!day[g.diff]) {
+    const s = g.results.map(r => r.s), e = g.results.map(r => r.d), score = s.reduce((a, b) => a + b, 0);
+    day[g.diff] = { score, s, e, n: DIFFS[g.diff].daily.slice(), g: g.results.map(r => r.guess ? [r.guess.x, r.guess.y] : null) };
+    const di = dayIndex(g.date), last = p.daily.lastDate ? dayIndex(p.daily.lastDate) : null;
+    if (last !== di) p.daily.streak = last === di - 1 ? p.daily.streak + 1 : 1;
+    p.daily.bestStreak = Math.max(p.daily.bestStreak, p.daily.streak);
+    p.daily.lastDate = g.date;
+    addTotals(p, g.results);
+    p.recent.unshift({ mode: "daily", diff: g.diff, date: g.date, at: Date.now(), score, rounds: 5, avgErr: avg(e), s });
+    p.recent = p.recent.slice(0, MAX_RECENT);
+    Players.save(p);
+  }
+  LS.set(LS_PROGRESS(p.id, g.diff), null);
+  g.phase = "done"; redraw(); renderPlay(); renderWho();
+}
+function finishEndless(g) {
+  const p = state.profile, e = p.endless[g.diff], rounds = g.results.length;
+  g.isBest = g.total > e.best; g.prevBest = e.best;
+  e.best = Math.max(e.best, g.total); e.bestRound = Math.max(e.bestRound, rounds); e.runs += 1;
+  addTotals(p, g.results);
+  p.recent.unshift({ mode: "endless", diff: g.diff, date: ymd(), at: Date.now(), score: g.total, rounds, avgErr: avg(g.results.map(r => r.d)), s: g.results.slice(-12).map(r => r.s) });
+  p.recent = p.recent.slice(0, MAX_RECENT);
+  Players.save(p);
+  g.phase = "done"; redraw(); renderPlay();
+}
+
+let flashTimer = 0;
+function flash(text) { const el = $("#flash"); el.textContent = text; el.classList.add("on"); clearTimeout(flashTimer); flashTimer = setTimeout(() => el.classList.remove("on"), 1100); }
+
+/* ---------- canvas ---------- */
+const board = $("#board"), cv = $("#cv");
+let ctx = cv.getContext("2d"), W = 0; const T = {};
+function readTokens() { const cs = getComputedStyle(document.documentElement); for (const k of ["board", "grid", "grid-strong", "ink", "ink-2", "ink-3", "pen", "t1", "t2", "t3", "t4"]) T[k] = cs.getPropertyValue("--" + k).trim(); }
+function resize() {
+  const w = board.clientWidth; const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (!w) return;
+  W = w; cv.width = Math.round(W * dpr); cv.height = Math.round(W * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); redraw();
+}
+let animUntil = 0, raf = 0;
+function kick(ms) { animUntil = Math.max(animUntil, performance.now() + ms); if (!raf) raf = requestAnimationFrame(loop); }
+function redraw() { if (!raf) raf = requestAnimationFrame(loop); }
+function loop(t) { raf = 0; draw(t); if (t < animUntil) raf = requestAnimationFrame(loop); }
+const easeOut = x => 1 - Math.pow(1 - x, 3);
+const easeBack = x => { const c1 = 1.7, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+const tierColor = s => T[{ g: "t1", y: "t2", o: "t3", m: "t4" }[tierOf(s)]];
+const MONO = '600 12px "Atkinson Hyperlegible Mono", ui-monospace, monospace';
+
+function drawBoard(withGrid) {
+  ctx.fillStyle = T.board; ctx.fillRect(0, 0, W, W);
+  if (!withGrid) return;
+  ctx.lineWidth = 1;
+  for (let i = 1; i < 20; i++) {
+    const v = Math.round(i * W / 20) + 0.5;
+    ctx.strokeStyle = i % 5 === 0 ? T["grid-strong"] : T.grid; ctx.globalAlpha = i % 5 === 0 ? 0.7 : 1;
+    ctx.beginPath(); ctx.moveTo(v, 0); ctx.lineTo(v, W); ctx.moveTo(0, v); ctx.lineTo(W, v); ctx.stroke();
+  }
+  ctx.globalAlpha = 1; ctx.strokeStyle = T["ink-3"];
+  for (let i = 1; i < 10; i++) {
+    const v = Math.round(i * W / 10) + 0.5, L = i === 5 ? 9 : 5;
+    ctx.beginPath(); ctx.moveTo(v, 0); ctx.lineTo(v, L); ctx.moveTo(v, W); ctx.lineTo(v, W - L); ctx.moveTo(0, v); ctx.lineTo(L, v); ctx.moveTo(W, v); ctx.lineTo(W - L, v); ctx.stroke();
+  }
+}
+function drawCoM(x, y, r, scale = 1) {
+  if (scale <= 0) return;
+  const R = r * scale; ctx.save(); ctx.translate(x, y);
+  ctx.fillStyle = T.board; ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = T.ink;
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R, -Math.PI / 2, 0); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R, Math.PI / 2, Math.PI); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = T.ink; ctx.lineWidth = Math.max(1.5, R * 0.18); ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+}
+function dotRadius(base, m) { return m ? base * 0.85 * Math.sqrt(m) : base; }   // area proportional to weight
+function drawDot(x, y, base, m, alpha = 1, scale = 1) {
+  if (alpha <= 0 || scale <= 0) return;
+  const r = dotRadius(base, m) * scale;
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = T.board; ctx.beginPath(); ctx.arc(x, y, r + 2.5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = T.ink; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  if (m) {
+    ctx.fillStyle = T.board; ctx.font = `700 ${Math.max(6, Math.round(r * 1.05))}px "Atkinson Hyperlegible Mono", ui-monospace, monospace`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(String(m), x, y + 0.5); ctx.textAlign = "start";
+  }
+  ctx.globalAlpha = 1;
+}
+function drawGuess(x, y, color = T.pen, r = 9) {
+  if (color === T.pen && state.popAt && !reduceMotion()) { const k = clamp((performance.now() - state.popAt) / 150); r *= 1 + 0.15 * (1 - easeOut(k)); if (k < 1) kick(40); }
+  ctx.strokeStyle = color; ctx.lineWidth = 2.25; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, 2.4, 0, Math.PI * 2); ctx.fill();
+}
+// Full-board crosshair lines only on Easy; Normal and Hard show just the aiming ring.
+function drawCrosshair(x, y, full) {
+  if (full) {
+    ctx.strokeStyle = T.pen; ctx.globalAlpha = 0.5; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, 0); ctx.lineTo(Math.round(x) + 0.5, W); ctx.moveTo(0, Math.round(y) + 0.5); ctx.lineTo(W, Math.round(y) + 0.5); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  drawGuess(x, y);
+}
+function label(text, x, y, color) {
+  ctx.font = MONO; const w = ctx.measureText(text).width + 12, h = 20;
+  const lx = clamp(x - w / 2, 4, W - w - 4), ly = clamp(y - h / 2, 4, W - h - 4);
+  ctx.fillStyle = T.board; ctx.strokeStyle = color; ctx.lineWidth = 1;
+  ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(lx, ly, w, h, 4); else ctx.rect(lx, ly, w, h); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = color; ctx.textBaseline = "middle"; ctx.fillText(text, lx + 6, ly + h / 2 + 0.5);
+}
+const DEMO = [{ x: 0.24, y: 0.3 }, { x: 0.74, y: 0.22 }, { x: 0.66, y: 0.74 }, { x: 0.3, y: 0.68 }];
+
+let lastDrawAt = 0;
+function draw(now) {
+  lastDrawAt = performance.now();
+  if (!W) return;
+  ctx.clearRect(0, 0, W, W);
+  const X = v => v * W, dotR = Math.max(5, W * 0.016), comR = Math.max(9, W * 0.026);
+  if (!state.profile) {
+    drawBoard(false);
+    const c = centroid(DEMO);
+    ctx.strokeStyle = T["ink-3"]; ctx.lineWidth = 1.25;
+    for (const p of DEMO) { ctx.beginPath(); ctx.moveTo(X(p.x), X(p.y)); ctx.lineTo(X(c.x), X(c.y)); ctx.stroke(); }
+    for (const p of DEMO) drawDot(X(p.x), X(p.y), dotR);
+    drawCoM(X(c.x), X(c.y), comR);
+    return;
+  }
+  const g = game(); if (!g) { drawBoard(false); return; }
+  const cfg = DIFFS[g.diff];
+  const dotBase = cfg.weighted ? Math.max(8, W * 0.021) : dotR;
+  drawBoard(cfg.grid);
+  if (g.mode === "daily" && g.phase === "done") { drawDailySummary(g); return; }
+  const r = g.rounds[g.idx], res = g.results[g.idx]; if (!r) return;
+  const c = centroid(r.pts);
+
+  if (g.phase === "aim") {
+    let alpha = 1;
+    if (r.fade) {
+      const left = r.fade - (now - r.shownAt);
+      alpha = clamp(left / 300);
+      ctx.fillStyle = T.pen; ctx.fillRect(0, 0, W * clamp(left / r.fade), 3);
+      if (left > -400) kick(60);
+    }
+    const since = reduceMotion() ? 9999 : now - r.shownAt;
+    r.pts.forEach((p, i) => drawDot(X(p.x), X(p.y), dotBase, p.m, alpha, easeBack(clamp((since - i * 60) / 240))));
+    if (since < r.pts.length * 60 + 260) kick(60);
+    if (state.aim && state.finger) {
+      ctx.strokeStyle = T.pen; ctx.globalAlpha = 0.45; ctx.lineWidth = 1.5; ctx.setLineDash([2, 3]);
+      ctx.beginPath(); ctx.moveTo(X(state.aim.x), X(state.aim.y) + 10); ctx.lineTo(X(state.finger.x), X(state.finger.y)); ctx.stroke();
+      ctx.setLineDash([]); ctx.globalAlpha = 1;
+    }
+    if (state.aim) drawCrosshair(X(state.aim.x), X(state.aim.y), cfg.grid);
+    return;
+  }
+  const t = (g.revealAt && !reduceMotion()) ? now - g.revealAt : 99999;
+  const S = (r.pts.length - 1) * 90;   // spokes grow one after another, 90 ms apart
+  ctx.strokeStyle = T["ink-3"]; ctx.setLineDash([]);
+  r.pts.forEach((p, i) => {
+    const k = easeOut(clamp((t - i * 90) / 360)); if (k <= 0) return;
+    ctx.lineWidth = p.m ? 0.75 + p.m * 0.5 : 1.25;
+    ctx.beginPath(); ctx.moveTo(X(p.x), X(p.y)); ctx.lineTo(X(p.x + (c.x - p.x) * k), X(p.y + (c.y - p.y) * k)); ctx.stroke();
+  });
+  for (const p of r.pts) drawDot(X(p.x), X(p.y), dotBase, p.m);
+  if (res && res.guess) {
+    const miss = easeOut(clamp((t - S - 380) / 320)), col = tierColor(res.s);
+    if (res.s === 100) {
+      const k = clamp((t - S - 560) / 700);
+      if (k > 0 && k < 1) { ctx.strokeStyle = T.t1; ctx.globalAlpha = 1 - k; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(X(c.x), X(c.y), comR * (1 + 3.2 * easeOut(k)), 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1; }
+    }
+    if (miss > 0) {
+      ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
+      ctx.beginPath(); ctx.moveTo(X(res.guess.x), X(res.guess.y)); ctx.lineTo(X(res.guess.x + (c.x - res.guess.x) * miss), X(res.guess.y + (c.y - res.guess.y) * miss)); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    drawCoM(X(c.x), X(c.y), comR, easeBack(clamp((t - S - 240) / 300)));
+    drawGuess(X(res.guess.x), X(res.guess.y));
+    if (t > S + 700) {
+      const mx = (res.guess.x + c.x) / 2, my = (res.guess.y + c.y) / 2, dx = c.x - res.guess.x, dy = c.y - res.guess.y, L = Math.hypot(dx, dy) || 1;
+      label((res.d * 100).toFixed(2) + "%", X(mx) - (dy / L) * 22, X(my) + (dx / L) * 22, col);
+    }
+  } else drawCoM(X(c.x), X(c.y), comR);
+}
+function drawDailySummary(g) {
+  const X = v => v * W;
+  ctx.textBaseline = "middle";
+  g.results.forEach((res, i) => {
+    const c = res.c || centroid(g.rounds[i].pts), col = tierColor(res.s);
+    if (res.guess) {
+      ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
+      ctx.beginPath(); ctx.moveTo(X(res.guess.x), X(res.guess.y)); ctx.lineTo(X(c.x), X(c.y)); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(X(res.guess.x), X(res.guess.y), 4, 0, Math.PI * 2); ctx.fill();
+    }
+    drawCoM(X(c.x), X(c.y), Math.max(7, W * 0.019));
+    ctx.font = MONO; ctx.fillStyle = T["ink-2"]; ctx.fillText(String(i + 1), X(c.x) + 13, X(c.y) - 12);
+  });
+}
+
+/* ---------- input ---------- */
+function toNorm(e) { const r = board.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }; }
+const inside = p => p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1;
+// Phones: the marker floats above the fingertip while dragging, and a Lock in button submits.
+// Mouse: the marker follows the pointer and a click submits.
+const TOUCH_LIFT = 56; // CSS px between fingertip and marker
+function setTouch(v) {
+  if (state.touch === v) return;
+  state.touch = v;
+  const g = game(); if (g && g.phase === "aim") renderPlay();
+}
+function liftedAim(e) {
+  const r = board.getBoundingClientRect(), p = toNorm(e);
+  return { x: clamp(p.x), y: clamp(p.y - TOUCH_LIFT / r.height) };
+}
+function syncLock() { const b = $("#lockBtn"); if (b) { b.classList.toggle("wait", !state.aim); b.setAttribute("aria-disabled", String(!state.aim)); } }
+// Fingers are handled with touch events further down. Pointer events stay for mouse and pen.
+board.addEventListener("pointerdown", e => {
+  if (e.pointerType === "touch") return;
+  const g = game(); if (!g || !state.profile) return;
+  setTouch(e.pointerType !== "mouse");
+  if (g.phase === "reveal") { tapReveal(); return; }
+  if (g.phase !== "aim") return;
+  state.down = true; state.popAt = performance.now(); try { board.setPointerCapture(e.pointerId); } catch {}
+  if (state.touch) { state.aim = liftedAim(e); state.finger = toNorm(e); syncLock(); }
+  else state.aim = toNorm(e);
+  redraw();
+});
+board.addEventListener("pointermove", e => {
+  if (e.pointerType === "touch") return;
+  const g = game(); if (!g || g.phase !== "aim") return;
+  if (e.pointerType !== "mouse") {
+    if (!state.down) return;
+    state.aim = liftedAim(e); state.finger = toNorm(e); redraw(); return;
+  }
+  const p = toNorm(e); state.aim = inside(p) ? p : (state.down ? { x: clamp(p.x), y: clamp(p.y) } : null); redraw();
+});
+board.addEventListener("pointerup", e => {
+  if (e.pointerType === "touch" || !state.down) return; state.down = false;
+  if (e.pointerType !== "mouse") { state.finger = null; syncLock(); redraw(); return; }
+  const p = toNorm(e); if (inside(p)) commit(p); else { state.aim = null; redraw(); }
+});
+board.addEventListener("pointercancel", e => {
+  if (e.pointerType === "touch") return; state.down = false; state.finger = null; if (!state.touch) state.aim = null; syncLock(); redraw(); });
+const NOSCROLL = { passive: false };
+let touchId = null;
+const ownTouch = e => [...e.changedTouches].find(t => t.identifier === touchId);
+function touchAim(t) {
+  Diag.aim++;
+  state.aim = liftedAim(t); state.finger = toNorm(t);
+  const now = performance.now();
+  if (now - lastDrawAt > 12) draw(now); else redraw();   // draw right away, but never twice in one frame
+}
+board.addEventListener("touchstart", e => {
+  e.preventDefault();
+  if (e.touches.length === 1) touchId = null;   // only one finger is down, so a lost touchend can't leave the board locked
+  const g = game(); if (!g || !state.profile || touchId !== null) return;
+  setTouch(true);
+  const t = e.changedTouches[0];
+  if (g.phase === "reveal") {
+    tapReveal();
+    const g2 = game(); if (!g2 || g2.phase !== "aim") return;
+    // That tap started the next round. Keep following the same finger: the marker appears as soon as it moves.
+    touchId = t.identifier; state.down = true; state.waitMove = { x: t.clientX, y: t.clientY };
+    return;
+  }
+  if (g.phase !== "aim") return;
+  touchId = t.identifier; state.down = true; state.popAt = performance.now();
+  touchAim(t); syncLock(); kick(160);
+}, NOSCROLL);
+board.addEventListener("touchmove", e => {
+  e.preventDefault();
+  const t = ownTouch(e), g = game(); if (!t || !g || g.phase !== "aim" || !state.down) return;
+  if (state.waitMove) {
+    if (Math.hypot(t.clientX - state.waitMove.x, t.clientY - state.waitMove.y) < 4) return;
+    state.waitMove = null; state.popAt = performance.now(); kick(160);
+  }
+  touchAim(t); syncLock();
+}, NOSCROLL);
+const touchDone = e => {
+  e.preventDefault();
+  if (!ownTouch(e)) return;
+  touchId = null; state.down = false; state.finger = null; state.waitMove = null; syncLock(); redraw();
+};
+board.addEventListener("touchend", touchDone, NOSCROLL);
+board.addEventListener("touchcancel", touchDone, NOSCROLL);
+board.addEventListener("pointerleave", e => { if (!state.down && e.pointerType === "mouse") { state.aim = null; redraw(); } });
+board.addEventListener("focus", () => { const g = game(); if (g && g.phase === "aim" && !state.aim) { state.aim = { x: 0.5, y: 0.5 }; redraw(); } });
+board.addEventListener("keydown", e => {
+  const g = game(); if (!g || g.phase !== "aim") return;
+  const step = e.shiftKey ? 0.05 : 0.005, a = state.aim || { x: 0.5, y: 0.5 };
+  const mv = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+  if (mv) { e.preventDefault(); state.aim = { x: clamp(a.x + mv[0]), y: clamp(a.y + mv[1]) }; redraw(); }
+  else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); commit(a); }
+});
+document.addEventListener("keydown", e => {
+  if (e.defaultPrevented || e.target instanceof HTMLButtonElement || e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const g = game(); if (!g || !isGame(state.view)) return;
+  if (g.phase === "reveal") { e.preventDefault(); tapReveal(); }
+  else if (e.key === "Enter" && g.mode === "endless" && g.phase === "done") { e.preventDefault(); restartEndless(); }
+});
+
+/* ---------- header + tabs ---------- */
+function renderWho() {
+  const b = $("#who"), p = state.profile;
+  b.hidden = !p; if (!p) return;
+  $("#whoAv").style.background = p.color; $("#whoAv").textContent = p.name.trim()[0] || "?";
+  $("#whoName").textContent = p.name;
+}
+function renderTabs() {
+  document.querySelectorAll("#tabs button").forEach(t => { if (t.dataset.tab === state.view) t.setAttribute("aria-current", "page"); else t.removeAttribute("aria-current"); });
+}
+document.querySelectorAll("#tabs button").forEach(t => t.addEventListener("click", () => { if (t.dataset.tab !== state.view) go(t.dataset.tab); }));
+$("#who").addEventListener("click", () => { state.manage = "players"; if (state.view === "stats") renderStats(); else go("stats"); });
+$("#brand").addEventListener("click", () => { if (state.view !== "home") go("home"); });
+$("#backBtn").addEventListener("click", () => go("home"));
+function playDaily(d) { state.playDiff = d; go("daily"); }
+function playEndless(d) { state.playDiff = d; go("endless"); }
+
+/* ---------- HUD + readout ---------- */
+function renderPlay() {
+  const hud = $("#hud"), ro = $("#readout");
+  if (!state.profile) return;
+  board.classList.remove("idle");
+  const g = game(); if (!g) return;
+  board.classList.toggle("locked", g.phase !== "aim");
+  renderHud(g, hud); renderReadout(g, ro);
+}
+function renderHud(g, hud) {
+  const dl = DIFFS[g.diff].label;
+  if (g.mode === "daily") {
+    const pips = [0, 1, 2, 3, 4].map(i => {
+      const r = g.results[i];
+      if (r && (g.phase !== "aim" || i < g.idx)) return `<span class="pip t-${tierOf(r.s)}" title="Round ${i + 1}: ${r.s}"></span>`;
+      return `<span class="pip${i === g.idx && g.phase !== "done" ? " cur" : ""}"></span>`;
+    }).join("");
+    hud.innerHTML = `<div class="hud-title">Daily #${g.num}<small>${dl}, ${esc(prettyDate(g.date))}</small></div><div class="pips" aria-label="Round results">${pips}</div>`;
+  } else {
+    const res = g.results[g.idx], draining = g.phase === "reveal" && res && res.lifeLost;
+    const lives = Array.from({ length: ENDLESS_LIVES }, (_, i) => `<span class="life${i >= g.lives ? " lost" : ""}${draining && i === g.lives ? " drain" : ""}"></span>`).join("");
+    hud.innerHTML = `<div class="hud-title">Endless<small>${dl}, round ${g.idx + 1}</small></div>
+      <div class="hud-stats"><span class="lives" aria-label="${g.lives} lives left">${lives}</span><span><b>${fmt(g.total)}</b> pts</span><span class="combo" title="Score multiplier">×${String(+g.combo.toFixed(2))}</span></div>`;
+  }
+}
+let countTimer = 0;
+function renderReadout(g, ro) {
+  clearInterval(countTimer);
+  if (g.phase === "aim") {
+    const r = g.rounds[g.idx], n = r.pts.length, cfg = DIFFS[g.diff];
+    const kicker = g.mode === "daily" ? `Round ${g.idx + 1} of 5` : `Round ${g.idx + 1}, ${n} dots`;
+    const big = cfg.weighted ? `Find the center of mass of <b>${n}</b> weighted dots` : `Find the center of <b>${n}</b> dots`;
+    let sub = state.touch ? "Drag to place your marker, then tap Lock in." : "Press, drag to fine-tune, release to lock in.";
+    if (cfg.weighted && (g.idx === 0 || r.fade)) sub = "Each number is that dot's weight, and bigger dots pull harder. " + sub;
+    else if (g.mode === "daily" && g.idx === 0) sub = `Everyone on ${cfg.label} gets the same five boards today. ` + sub;
+    if (g.mode === "endless" && r.fade) sub = `The dots vanish after ${(r.fade / 1000).toFixed(1)}s. Remember where they were.`;
+    else if (g.mode === "endless" && g.idx === 0) sub = "Scores under 60 cost a life. Scores of 85 or more build your multiplier.";
+    ro.innerHTML = `<div class="prompt"><span class="kicker">${kicker}</span><p class="big">${big}</p><p class="sub">${sub}</p></div>`
+      + (state.touch ? `<button class="btn primary block${state.aim ? "" : " wait"}" id="lockBtn" aria-disabled="${!state.aim}">Lock in</button>` : "");
+    const lb = $("#lockBtn");
+    if (lb) lb.addEventListener("click", () => {
+      if (state.aim) { commit(state.aim); return; }
+      for (const el of [lb, ro.querySelector(".sub")]) { if (!el) continue; el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake"); }
+      buzz(8);
+    });
+    return;
+  }
+  if (g.phase === "reveal") {
+    const res = g.results[g.idx], t = tierOf(res.s);
+    const last = g.mode === "daily" ? g.idx >= 4 : g.lives <= 0;
+    const btnText = last ? (g.mode === "daily" ? "See results" : "End run") : "Next round";
+    const shown = g.mode === "endless" ? res.gained : res.s;
+    const extra = g.mode === "endless" ? (res.combo > 1 ? ` (${res.s} × ${res.combo})` : "") + (res.lifeLost ? '. <b style="color:var(--pen)">You lost a life.</b>' : "") : "";
+    ro.innerHTML = `<div class="result t-${t}">
+      <div class="score"><span class="num" id="cu">+0</span><span class="tier">${tierLabel(res.s)}</span></div>
+      <div class="meta">Missed by <b>${(res.d * 100).toFixed(2)}%</b> of the board${extra}</div>
+      <button class="btn primary" id="nextBtn">${btnText}</button></div>`;
+    $("#nextBtn").addEventListener("click", tapReveal);
+    countUp($("#cu"), shown); return;
+  }
+  if (g.mode === "daily") renderDailyDone(g, ro); else renderEndlessDone(g, ro);
+}
+let countSkip = () => {};
+function countUp(el, target) {
+  if (reduceMotion()) { el.textContent = "+" + target; return; }
+  // The score starts counting once the centroid has landed, and settles into its tier color.
+  const t0 = performance.now() + 380; let skip = false;
+  countSkip = () => { skip = true; el.textContent = "+" + target; };
+  const step = t => { if (skip) return; const k = clamp((t - t0) / 560); el.textContent = "+" + Math.round(target * easeOut(k)); if (k < 1 && el.isConnected) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+function renderDailyDone(g, ro) {
+  const s = g.results.map(r => r.s), total = s.reduce((a, b) => a + b, 0), p = state.profile, streak = currentStreak(p);
+  const others = DIFF_KEYS.filter(d => d !== g.diff && !(p.daily.history[g.date] || {})[d]);
+  const rank = deviceRank(g.diff);
+  ro.innerHTML = `<div class="summary">
+    <div class="sum-row"><div><span class="kicker">${DIFFS[g.diff].label} daily #${g.num}, ${esc(prettyDate(g.date))}</span><div class="total">${total}<small>/500</small></div></div><div class="tiles">${s.map(x => `<span class="tile t-${tierOf(x)}">${x}</span>`).join("")}</div></div>
+    <div class="facts"><span>Avg miss <b>${(avg(g.results.map(r => r.d)) * 100).toFixed(2)}%</b></span><span>Streak <b>${streak}</b> day${streak === 1 ? "" : "s"}</span>${rank ? `<span>On this device <b>#${rank.pos}</b> of ${rank.of}</span>` : ""}</div>
+    <div class="actions">${others.length ? `<button class="btn primary" id="tryOther" data-d="${others[0]}">Play ${DIFFS[others[0]].label} daily</button>` : ""}<button class="btn${others.length ? "" : " primary"}" id="playEndless">Play Endless</button><button class="btn" id="copyBtn">Copy result</button></div>
+    <pre class="sharebox" id="shareBox" hidden></pre>
+    <p class="next">Next boards in <span id="cd">--:--:--</span> (your local midnight)</p></div>`;
+  const to = $("#tryOther"); if (to) to.addEventListener("click", () => { state.playDiff = to.dataset.d; setView("daily"); });
+  $("#playEndless").addEventListener("click", () => { state.playDiff = g.diff; setView("endless"); });
+  $("#copyBtn").addEventListener("click", e => copyText(`Plumb #${g.num} ${DIFFS[g.diff].label}  ${total}/500\n${s.map(x => EMOJI[tierOf(x)]).join("")}\nAvg miss ${(avg(g.results.map(r => r.d)) * 100).toFixed(2)}%`, e.currentTarget));
+  const tick = () => {
+    const now = new Date(), mid = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const sec = Math.max(0, Math.floor((mid - now) / 1000)), el = $("#cd");
+    if (!el) { clearInterval(countTimer); return; }
+    el.textContent = [Math.floor(sec / 3600), Math.floor(sec / 60) % 60, sec % 60].map(v => String(v).padStart(2, "0")).join(":");
+    if (ymd() !== g.date) { clearInterval(countTimer); setView(state.view); }
+  };
+  tick(); countTimer = setInterval(tick, 1000);
+}
+function renderEndlessDone(g, ro) {
+  const rounds = g.results.length, e = state.profile.endless[g.diff];
+  ro.innerHTML = `<div class="summary">
+    <div class="sum-row"><div><span class="kicker">Run over after ${rounds} round${rounds === 1 ? "" : "s"} on ${DIFFS[g.diff].label}</span><div class="total">${fmt(g.total)}<small> pts</small></div></div></div>
+    <div class="facts">${g.isBest ? `<span class="new">New personal best</span><span>Previous <b>${fmt(g.prevBest || 0)}</b></span>` : `<span>Best <b>${fmt(e.best)}</b></span><span>${fmt(e.best - g.total)} short</span>`}<span>Avg miss <b>${(avg(g.results.map(r => r.d)) * 100).toFixed(2)}%</b></span></div>
+    <div class="actions"><button class="btn primary" id="again">Run it back</button><button class="btn" id="copyBtn">Copy result</button><button class="btn" id="seeStats">Stats</button></div>
+    <pre class="sharebox" id="shareBox" hidden></pre></div>`;
+  $("#again").addEventListener("click", restartEndless);
+  $("#seeStats").addEventListener("click", () => go("stats"));
+  $("#copyBtn").addEventListener("click", ev => copyText(`Plumb Endless ${DIFFS[g.diff].label}  ${fmt(g.total)} pts\nReached round ${rounds}\n${g.results.slice(-10).map(r => EMOJI[tierOf(r.s)]).join("")}`, ev.currentTarget));
+}
+function restartEndless() { state.games[gameKey("endless")] = newEndless(diff()); kick(50); renderPlay(); }
+function copyText(text, btn, label = "Copy result") {
+  const box = btn.closest(".summary, .manage, .diag")?.querySelector(".sharebox");
+  const done = ok => {
+    btn.textContent = ok ? "Copied" : "Select and copy below";
+    if (!ok && box) { box.hidden = false; box.textContent = text; const r = document.createRange(); r.selectNodeContents(box); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+    setTimeout(() => { btn.textContent = label; }, 1800);
+  };
+  try { navigator.clipboard.writeText(text).then(() => done(true), () => done(false)); } catch { done(false); }
+}
+
+/* ---------- create player ---------- */
+function playerForm(prefix, { name = "", color = COLORS[Math.floor(Math.random() * COLORS.length)], diff: d = "normal", withDiff = true, submit = "Create player" } = {}) {
+  return `<form class="form" id="${prefix}Form" novalidate>
+    <div class="field"><label for="${prefix}Name">Player name</label><input class="input" id="${prefix}Name" maxlength="16" autocomplete="nickname" value="${esc(name)}" placeholder="e.g. Mason"><span class="err" id="${prefix}Err"></span></div>
+    <div class="field"><span class="lbl">Color</span><div class="swatches" id="${prefix}Sw">${COLORS.map(c => `<button type="button" class="sw" style="background:${c}" data-c="${c}" aria-label="Color ${c}" aria-pressed="${c === color}"></button>`).join("")}</div></div>
+    ${withDiff ? `<div class="field"><span class="lbl">Starting difficulty</span><div class="seg small" id="${prefix}Diff" style="align-self:flex-start">${DIFF_KEYS.map(k => `<button type="button" data-d="${k}" aria-pressed="${k === d}">${DIFFS[k].label}</button>`).join("")}</div>
+      <span class="hint">Easy shows a grid. Normal has no grid. Hard adds weighted dots. You can switch any time.</span></div>` : ""}
+    <div class="row"><button class="btn primary" type="submit">${submit}</button><span class="slot" id="${prefix}Extra"></span></div></form>`;
+}
+function wireForm(prefix, onSubmit, exceptId) {
+  const f = $("#" + prefix + "Form"); if (!f) return;
+  let color = f.querySelector('.sw[aria-pressed="true"]').dataset.c;
+  let d = f.querySelector(`#${prefix}Diff [aria-pressed="true"]`)?.dataset.d || "normal";
+  f.querySelectorAll(".sw").forEach(b => b.addEventListener("click", () => { color = b.dataset.c; f.querySelectorAll(".sw").forEach(x => x.setAttribute("aria-pressed", String(x === b))); }));
+  f.querySelectorAll(`#${prefix}Diff button`).forEach(b => b.addEventListener("click", () => { d = b.dataset.d; f.querySelectorAll(`#${prefix}Diff button`).forEach(x => x.setAttribute("aria-pressed", String(x === b))); }));
+  const input = $("#" + prefix + "Name");
+  input.addEventListener("input", () => { $("#" + prefix + "Err").textContent = ""; });
+  f.addEventListener("submit", ev => {
+    ev.preventDefault();
+    const msg = validName(input.value, exceptId);
+    if (msg) { $("#" + prefix + "Err").textContent = msg; input.focus(); return; }
+    onSubmit(input.value.trim(), color, d);
+  });
+}
+function renderCreate(ro) {
+  ro.innerHTML = `<div class="prompt"><span class="kicker">Create your player</span><p class="big">Find the balance point of the dots. Closer is more points.</p><p class="sub">Your player keeps your streak, history and records${LS.ok ? " on this device. Use a transfer code from Stats to move it to another device." : ". This browser is blocking storage, so progress will be lost when you close the page."}</p></div>
+    ${playerForm("np")}`;
+  wireForm("np", (name, color, d) => createPlayer(name, color, d));
+  const imp = $("#npExtra");
+  imp.innerHTML = `<button class="btn" type="button" id="npImport">I have a transfer code</button>`;
+  $("#npImport").addEventListener("click", () => { state.manage = "import"; go("stats"); });
+}
+function createPlayer(name, color, d) {
+  const first = Players.index.list.length === 0;
+  const p = blankProfile(name, color, d);
+  if (first) migrateV1(p);
+  Players.save(p); Players.index.active = p.id; Players.saveIndex();
+  state.manage = false; state.statsDiff = "all";
+  activate(p);
+  go("home");
+}
+function activate(p) {
+  state.profile = p; state.games = {}; state.aim = null;
+  renderWho();
+}
+
+/* ---------- device ranking ---------- */
+function deviceProfiles() { return Players.index.list.map(m => m.id === state.profile?.id ? state.profile : Players.load(m.id)).filter(Boolean); }
+function deviceRank(d) {
+  const ps = deviceProfiles(); if (ps.length < 2) return null;
+  const date = ymd(), rows = ps.map(p => ({ id: p.id, s: (p.daily.history[date] || {})[d]?.score })).filter(r => r.s != null).sort((a, b) => b.s - a.s);
+  const i = rows.findIndex(r => r.id === state.profile.id);
+  return i < 0 || rows.length < 2 ? null : { pos: i + 1, of: rows.length };
+}
+
+/* ---------- stats ---------- */
+function dailyEntries(p, f) {
+  const out = [];
+  for (const [date, day] of Object.entries(p.daily.history)) for (const d of DIFF_KEYS) if (day[d] && (f === "all" || f === d)) out.push({ date, diff: d, ...day[d] });
+  return out.sort((a, b) => a.date < b.date ? -1 : 1);
+}
+function renderStats() {
+  const el = $("#stats"), p = state.profile;
+  if (!p) { el.innerHTML = managePanel(); wireManage(); return; }
+  const f = state.statsDiff, entries = dailyEntries(p, f);
+  const daysPlayed = Object.keys(p.daily.history).length, streak = currentStreak(p);
+  const avgMiss = p.totals.rounds ? (p.totals.errSum / p.totals.rounds * 100).toFixed(2) : "–";
+  const since = new Date(p.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  let html = `<div class="acct"><span class="av lg" style="background:${esc(p.color)}" id="acctAv"></span>
+    <div class="acct-main"><div class="acct-name" id="acctName"></div><div class="acct-sub">Playing since ${esc(since)}, ${fmt(p.totals.rounds)} rounds played</div></div>
+    <button class="btn small" id="toggleManage" aria-expanded="${!!state.manage}">${state.manage ? "Close" : "Players"}</button></div>`;
+  if (state.manage) html += managePanel();
+  html += `<div class="kpis">
+    <div class="kpi"><span class="v">${streak}</span><span class="l">Day streak</span></div>
+    <div class="kpi"><span class="v">${p.daily.bestStreak}</span><span class="l">Best streak</span></div>
+    <div class="kpi"><span class="v">${daysPlayed}</span><span class="l">Days played</span></div>
+    <div class="kpi"><span class="v">${fmt(p.totals.rounds)}</span><span class="l">Rounds played</span></div>
+    <div class="kpi"><span class="v">${avgMiss}${p.totals.rounds ? "<small>%</small>" : ""}</span><span class="l">Average miss</span></div>
+    <div class="kpi"><span class="v">${p.totals.bullseyes}</span><span class="l">Bullseyes (under 0.75%)</span></div></div>`;
+  html += panelByDifficulty(p);
+  if (!p.totals.rounds) {
+    html += `<div class="empty"><b>No games yet.</b> Today's daily is five rounds and takes about a minute. Your streak, accuracy and history build up here.<button class="btn primary" id="goDaily">Play today's daily</button></div>`;
+  } else {
+    html += `<div class="phead"><span class="kicker">Charts for</span><div class="seg small" id="statsDiff">${["all", ...DIFF_KEYS].map(k => `<button data-f="${k}" aria-pressed="${k === f}">${k === "all" ? "All" : DIFFS[k].label}</button>`).join("")}</div></div>`;
+    html += `<div class="two">${panelDistribution(p, entries)}${panelByDots(entries)}</div>`;
+    html += panelCalendar(p);
+    html += panelTrend(p, f);
+    html += panelRecent(p, f);
+  }
+  el.innerHTML = html;
+  $("#acctName").textContent = p.name; $("#acctAv").textContent = p.name.trim()[0] || "?";
+  $("#toggleManage").addEventListener("click", () => { state.manage = state.manage ? false : "players"; renderStats(); });
+  const gd = $("#goDaily"); if (gd) gd.addEventListener("click", () => playDaily(defaultDiff()));
+  el.querySelectorAll("#statsDiff button").forEach(b => b.addEventListener("click", () => { state.statsDiff = b.dataset.f; renderStats(); }));
+  if (state.manage) wireManage();
+  el.querySelectorAll(".lb-row[data-id]").forEach(r => { const m = Players.index.list.find(x => x.id === r.dataset.id); if (m) { r.querySelector(".nm").textContent = m.name + (m.id === p.id ? " (you)" : ""); r.querySelector(".av").textContent = m.name.trim()[0] || "?"; } });
+}
+function panelByDifficulty(p) {
+  const rows = DIFF_KEYS.map(d => {
+    const es = dailyEntries(p, d), e = p.endless[d];
+    return `<tr><td>${DIFFS[d].label}</td><td>${es.length}</td><td>${es.length ? Math.round(avg(es.map(x => x.score))) : "–"}</td><td>${es.length ? Math.max(...es.map(x => x.score)) : "–"}</td><td>${e.best ? fmt(e.best) : "–"}</td><td>${e.bestRound || "–"}</td></tr>`;
+  }).join("");
+  return `<div class="panel"><h2>By difficulty</h2><div class="tbl-wrap"><table class="tbl"><thead><tr><th></th><th>Dailies</th><th>Avg</th><th>Best</th><th>Endless best</th><th>Furthest</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
+function panelDistribution(p, entries) {
+  const buckets = [["475+", 475, 501], ["450–474", 450, 475], ["400–449", 400, 450], ["350–399", 350, 400], ["300–349", 300, 350], ["< 300", 0, 300]];
+  const today = entries.filter(e => e.date === ymd()).map(e => e.score);
+  const counts = buckets.map(([, a, b]) => entries.filter(e => e.score >= a && e.score < b).length), max = Math.max(1, ...counts);
+  const rows = buckets.map(([lab, a, b], i) => `<div class="bar${today.some(s => s >= a && s < b) ? " hot" : ""}"><span class="lab">${lab}</span><span class="track"><span class="fill" style="width:${counts[i] / max * 100}%"></span></span><span class="n">${counts[i]}</span></div>`).join("");
+  return `<div class="panel"><h2>Daily scores<span>${entries.length} played</span></h2>${entries.length ? `<div class="bars">${rows}</div>` : `<div class="empty">No dailies at this difficulty yet.</div>`}</div>`;
+}
+function panelByDots(entries) {
+  const by = { 2: [], 3: [], 4: [], 5: [] };
+  for (const en of entries) (en.e || []).forEach((e, i) => { const n = (en.n || DIFFS[en.diff].daily)[i]; if (by[n]) by[n].push(e); });
+  const vals = [2, 3, 4, 5].map(n => by[n].length ? avg(by[n]) * 100 : null), max = Math.max(1, ...vals.filter(v => v != null));
+  const rows = [2, 3, 4, 5].map((n, i) => `<div class="bar"><span class="lab">${n} dots</span><span class="track"><span class="fill" style="width:${vals[i] == null ? 0 : vals[i] / max * 100}%"></span></span><span class="n">${vals[i] == null ? "–" : vals[i].toFixed(1) + "%"}</span></div>`).join("");
+  return `<div class="panel"><h2>Miss by dot count<span>daily rounds</span></h2>${entries.length ? `<div class="bars">${rows}</div>` : `<div class="empty">Shows how your accuracy changes as boards get busier.</div>`}</div>`;
+}
+function panelCalendar(p) {
+  const ti = dayIndex(ymd()), first = ti - 28 - new Date().getDay();
+  let cells = "";
+  for (let i = first; i < first + 35; i++) {
+    if (i > ti) { cells += `<span class="d" style="visibility:hidden"></span>`; continue; }
+    const date = fromIndex(i), day = p.daily.history[date];
+    const best = day ? Math.max(...DIFF_KEYS.filter(d => day[d]).map(d => day[d].score)) : null;
+    cells += `<span class="d${best != null ? " t-" + tierOf(best / 5) : ""}${i === ti ? " today" : ""}" title="${esc(prettyDate(date))}${best != null ? ": best " + best : ""}"></span>`;
+  }
+  return `<div class="panel"><h2>Last five weeks<span>best daily each day</span></h2>
+    <div class="cal-dow"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div><div class="cal">${cells}</div>
+    <div class="legend"><span><i style="background:var(--t1)"></i>450+</span><span><i style="background:var(--t2)"></i>375–449</span><span><i style="background:var(--t3)"></i>300–374</span><span><i style="background:var(--t4)"></i>under 300</span></div></div>`;
+}
+function panelTrend(p, f) {
+  const runs = p.recent.filter(r => f === "all" || r.diff === f).slice(0, 30).reverse();
+  if (runs.length < 2) return `<div class="panel"><h2>Accuracy trend</h2><div class="empty">Play a couple more games${f === "all" ? "" : " on " + DIFFS[f].label} and your miss trend shows up here.</div></div>`;
+  const Wc = 600, Hc = 180, L = 44, R = 12, Tp = 12, B = 26, vals = runs.map(r => r.avgErr * 100);
+  const top = Math.max(2, Math.ceil(Math.max(...vals) / 2) * 2);
+  const xs = i => L + i * (Wc - L - R) / (runs.length - 1), ys = v => Tp + (1 - v / top) * (Hc - Tp - B);
+  const F = 'font-family="Atkinson Hyperlegible Mono, monospace" font-size="11" fill="var(--ink-3)"';
+  let svg = `<svg class="chart" viewBox="0 0 ${Wc} ${Hc}" role="img" aria-label="Average miss per game, last ${runs.length} games">`;
+  for (const t of [0, top / 2, top]) svg += `<line x1="${L}" x2="${Wc - R}" y1="${ys(t)}" y2="${ys(t)}" stroke="var(--grid-strong)" stroke-width="1"${t ? ' stroke-dasharray="3 4"' : ""}/><text x="${L - 8}" y="${ys(t) + 4}" text-anchor="end" ${F}>${t % 1 ? t.toFixed(1) : t}%</text>`;
+  const pts = vals.map((v, i) => `${xs(i).toFixed(1)},${ys(v).toFixed(1)}`).join(" ");
+  svg += `<polygon points="${xs(0)},${ys(0)} ${pts} ${xs(vals.length - 1)},${ys(0)}" fill="var(--pen)" opacity=".12"/><polyline points="${pts}" fill="none" stroke="var(--pen)" stroke-width="2" stroke-linejoin="round"/>`;
+  runs.forEach((r, i) => { const rr = i === runs.length - 1 ? 5 : 3.5; svg += r.mode === "daily" ? `<circle cx="${xs(i)}" cy="${ys(vals[i])}" r="${rr}" fill="var(--pen)"/>` : `<circle cx="${xs(i)}" cy="${ys(vals[i])}" r="${rr}" fill="var(--board)" stroke="var(--pen)" stroke-width="1.75"/>`; });
+  svg += `<text x="${L}" y="${Hc - 6}" ${F}>older</text><text x="${Wc - R}" y="${Hc - 6}" text-anchor="end" ${F}>latest</text></svg>`;
+  return `<div class="panel"><h2>Accuracy trend<span>average miss per game, lower is better</span></h2>${svg}<div class="legend"><span><i style="background:var(--pen);border-radius:50%"></i>Daily</span><span><i style="border:1.75px solid var(--pen);border-radius:50%"></i>Endless</span></div></div>`;
+}
+function panelRecent(p, f) {
+  const list = p.recent.filter(r => f === "all" || r.diff === f).slice(0, 12);
+  if (!list.length) return "";
+  const rows = list.map(r => `<div class="run"><span class="when">${esc(prettyDate(r.date))}</span><span class="what"><span>${r.mode === "daily" ? "Daily #" + dailyNumber(r.date) : "Endless, " + r.rounds + " rounds"}</span><span class="dtag">${DIFFS[r.diff || "normal"].label}</span><span class="sq">${(r.s || []).map(x => `<i class="t-${tierOf(x)}"></i>`).join("")}</span></span><span class="pts">${fmt(r.score)}</span></div>`).join("");
+  return `<div class="panel"><h2>Recent games<span>last ${list.length}</span></h2><div class="runs">${rows}</div></div>`;
+}
+function panelDevice(d) {
+  const date = ymd();
+  const ps = deviceProfiles();
+  const today = ps.map(p => ({ id: p.id, color: p.color, v: (p.daily.history[date] || {})[d]?.score })).filter(r => r.v != null).sort((a, b) => b.v - a.v);
+  const endless = ps.map(p => ({ id: p.id, color: p.color, v: p.endless[d].best })).filter(r => r.v > 0).sort((a, b) => b.v - a.v);
+  const list = rows => rows.length ? `<div class="lb">${rows.slice(0, 10).map((r, i) => `<div class="lb-row${r.id === state.profile.id ? " me" : ""}" data-id="${esc(r.id)}"><span class="rk">${i + 1}</span><span class="av" style="background:${esc(r.color)}"></span><span class="nm"></span><span class="sc">${fmt(r.v)}</span></div>`).join("")}</div>` : `<div class="empty">Nobody here yet.</div>`;
+  return `<div class="two"><div class="panel"><h2>Today on this device<span>${DIFFS[d].label} daily</span></h2>${list(today)}</div><div class="panel"><h2>Endless on this device<span>${DIFFS[d].label}</span></h2>${list(endless)}</div></div>`;
+}
+
+/* ---------- players: switch, add, rename, transfer, delete ---------- */
+function managePanel() {
+  const p = state.profile, m = state.manage || "import";
+  const others = Players.index.list.filter(x => !p || x.id !== p.id);
+  let html = `<div class="manage" id="manage">`;
+  if (p) {
+    html += `<div class="seg small" id="mTabs" style="align-self:flex-start">${[["players", "Switch"], ["new", "New player"], ["edit", "Edit"], ["export", "Transfer out"], ["import", "Transfer in"]].map(([k, l]) => `<button data-m="${k}" aria-pressed="${k === m}">${l}</button>`).join("")}</div>`;
+  } else {
+    html += `<div class="row"><button class="btn small" id="mBack">Back to create player</button></div>`;
+  }
+  if (p && m === "players") {
+    html += `<h3>Players on this device</h3>${others.length ? `<div class="plist">${others.map(x => `<div class="prow"><span class="av" style="background:${esc(x.color)}">${esc(x.name.trim()[0] || "?")}</span><span class="nm">${esc(x.name)}</span><button class="btn small" data-switch="${esc(x.id)}">Play as</button></div>`).join("")}</div>` : `<p class="hint">You're the only player here. Add another for a family device, or keep separate profiles for practice.</p>`}`;
+  } else if (p && m === "new") {
+    html += `<h3>Add a player to this device</h3>${playerForm("ap")}`;
+  } else if (p && m === "edit") {
+    html += `<h3>Edit ${esc(p.name)}</h3>${playerForm("ep", { name: p.name, color: p.color, withDiff: false, submit: "Save changes" })}
+      <div class="field"><span class="lbl">Delete player</span><span class="hint">Removes this player's history from this device. Make a transfer code first if you want to keep it.</span>
+      <div class="row" id="delRow"><button class="btn small danger" id="delAsk">Delete ${esc(p.name)}</button></div></div>`;
+  } else if (p && m === "export") {
+    html += `<h3>Move ${esc(p.name)} to another device</h3><p class="hint">Copy this code, open Plumb on the other device, and paste it under Transfer in. The code holds your full history, so keep it to yourself.</p>
+      <textarea class="input" id="exCode" readonly></textarea><div class="row"><button class="btn small primary" id="exCopy">Copy code</button></div><pre class="sharebox" hidden></pre>`;
+  } else {
+    html += `<h3>Bring a player to this device</h3><p class="hint">Paste a transfer code from another device. If this device already has that player, the newer copy is kept.</p>
+      <textarea class="input" id="imCode" placeholder="PLUMB2.…"></textarea><span class="err" id="imErr"></span><div class="row"><button class="btn small primary" id="imGo">Import player</button></div>`;
+  }
+  if (state.notice) html += `<p class="hint" style="color:var(--t1)">${esc(state.notice)}</p>`;
+  return html + `</div>`;
+}
+function wireManage() {
+  const box = $("#manage"); if (!box) return;
+  state.notice = "";
+  box.querySelectorAll("#mTabs button").forEach(b => b.addEventListener("click", () => { state.manage = b.dataset.m; renderStats(); }));
+  const back = $("#mBack"); if (back) back.addEventListener("click", () => { state.manage = false; go("home"); });
+  box.querySelectorAll("[data-switch]").forEach(b => b.addEventListener("click", () => {
+    const np = Players.load(b.dataset.switch); if (!np) return;
+    Players.index.active = np.id; Players.saveIndex(); activate(np); state.manage = false; state.statsDiff = "all"; renderStats();
+  }));
+  wireForm("ap", (name, color, d) => { createPlayer(name, color, d); });
+  wireForm("ep", (name, color) => {
+    const p = state.profile; p.name = name; p.color = color; Players.save(p); renderWho();
+    state.notice = "Saved."; renderStats();
+  }, state.profile && state.profile.id);
+  const ask = $("#delAsk");
+  if (ask) ask.addEventListener("click", () => {
+    $("#delRow").innerHTML = `<span class="hint" style="color:var(--pen)">Delete for good?</span><button class="btn small danger" id="delYes">Yes, delete</button><button class="btn small" id="delNo">Cancel</button>`;
+    $("#delNo").addEventListener("click", renderStats);
+    $("#delYes").addEventListener("click", () => {
+      Players.remove(state.profile.id);
+      const next = Players.index.active ? Players.load(Players.index.active) : null;
+      state.manage = false;
+      if (next) { activate(next); renderStats(); } else { state.profile = null; state.games = {}; renderWho(); setView("home"); }
+    });
+  });
+  const ex = $("#exCode");
+  if (ex) { ex.value = encodeProfile(state.profile); $("#exCopy").addEventListener("click", e => copyText(ex.value, e.currentTarget, "Copy code")); ex.addEventListener("focus", () => ex.select()); }
+  const im = $("#imGo");
+  if (im) im.addEventListener("click", () => {
+    let p; try { p = decodeProfile($("#imCode").value); } catch (err) { $("#imErr").textContent = err.message; return; }
+    const local = Players.load(p.id);
+    if (local && (local.updatedAt || 0) > (p.updatedAt || 0)) { $("#imErr").textContent = "This device already has a newer copy of " + local.name + ". Nothing changed."; return; }
+    if (!local && Players.nameTaken(p.name)) { let i = 2; while (Players.nameTaken((p.name.slice(0, 13) + " " + i))) i++; p.name = p.name.slice(0, 13) + " " + i; }
+    LS.set(LS_PLAYER(p.id), p); Players.upsertMeta(p); Players.index.active = p.id; Players.saveIndex();
+    activate(p); state.manage = false; state.notice = ""; setView("stats");
+  });
+}
+
+/* ---------- home ---------- */
+function dailyStatus(d) {
+  const p = state.profile, date = ymd();
+  const h = (p.daily.history[date] || {})[d];
+  if (h) return { kind: "done", score: h.score, s: h.s };
+  const g = state.games["daily:" + d], pr = LS.get(LS_PROGRESS(p.id, d));
+  const n = g && g.date === date ? g.results.filter(Boolean).length : (pr && pr.date === date && Array.isArray(pr.results) ? pr.results.length : 0);
+  return n > 0 ? { kind: "prog", n } : { kind: "new" };
+}
+function nextDaily() {
+  const d0 = defaultDiff();
+  if (dailyStatus(d0).kind !== "done") return d0;
+  return DIFF_KEYS.find(d => dailyStatus(d).kind !== "done") || null;
+}
+function dotRange(d) { const a = DIFFS[d].daily; return a[0] + "–" + a[a.length - 1] + " dots"; }
+function greeting() {
+  const p = state.profile, h = new Date().getHours();
+  const part = h < 5 ? "Evening" : h < 12 ? "Morning" : h < 17 ? "Afternoon" : "Evening";
+  if (!p) return `<b>Find the balance point.</b> Drag a dot below and watch the center of mass follow.`;
+  const streak = currentStreak(p), playedToday = p.daily.lastDate === ymd();
+  const tail = streak === 0 ? "Start a streak today." : `${streak}-day streak${playedToday ? "." : ". Keep it going today."}`;
+  return `${part}, <b>${esc(p.name)}</b>. ${tail}`;
+}
+let homeTimer = 0;
+function renderHome() {
+  $("#greet").innerHTML = greeting();
+  const el = $("#homeMain"); clearInterval(homeTimer);
+  if (!state.profile) { renderCreate(el); return; }
+  const next = nextDaily();
+  let html = "";
+  if (next) {
+    const st = dailyStatus(next), lbl = DIFFS[next].label;
+    html += `<div class="cta"><button class="btn primary block" id="ctaBtn">${st.kind === "prog" ? `Resume today's ${lbl}` : `Play today's ${lbl}`}</button>
+      <p class="cta-sub">${st.kind === "prog" ? `You're on round ${st.n + 1} of 5.` : `5 rounds, about a minute. Same boards for everyone on ${lbl}.`}</p></div>`;
+  } else {
+    html += `<div class="summary alldone"><span class="kicker">All three dailies done</span><div class="cd-big" id="homeCd">--:--:--</div><p class="next">until tomorrow's boards</p>
+      <div class="actions"><button class="btn primary" id="homeEndless">Start an Endless run</button><button class="btn" id="homeShare">Copy today's results</button></div><pre class="sharebox" hidden></pre></div>`;
+  }
+  html += `<div class="dailies" role="list">${DIFF_KEYS.map(d => {
+    const st = dailyStatus(d), lbl = DIFFS[d].label, isNext = d === next;
+    if (st.kind === "done") return `<button class="dcard done t-${tierOf(st.score / 5)}" data-d="${d}" role="listitem" aria-label="${lbl} daily, done, ${st.score} of 500"><span class="dc-name">${lbl}</span><span class="dc-mid">${st.score}<small>/500</small></span><span class="dc-foot">${st.s.map(x => `<i class="t-${tierOf(x)}"></i>`).join("")}</span></button>`;
+    if (st.kind === "prog") return `<button class="dcard${isNext ? " is-next" : ""}" data-d="${d}" role="listitem" aria-label="${lbl} daily, round ${st.n + 1} of 5"><span class="dc-name">${lbl}</span><span class="dc-mid">${st.n}<small>/5</small></span><span class="dc-foot">${[0, 1, 2, 3, 4].map(i => `<i class="${i < st.n ? "t-m" : "empty"}"></i>`).join("")}</span></button>`;
+    return `<button class="dcard${isNext ? " is-next" : ""}" data-d="${d}" role="listitem" aria-label="${lbl} daily, not played"><span class="dc-name">${lbl}</span><span class="dc-mid" style="font-size:17px">${dotRange(d)}</span><span class="dc-foot">${isNext ? "Up next" : "Not played"}</span></button>`;
+  }).join("")}</div>`;
+  const ed = state.profile.settings.endlessDifficulty || defaultDiff(), e = state.profile.endless[ed];
+  const eg = state.games["endless:" + ed], live = eg && eg.phase !== "done" && eg.results.length > 0;
+  html += `<div class="ecard"><div class="ec-head"><span class="ec-title">Endless</span><div class="seg small" id="ecDiff" role="group" aria-label="Endless difficulty">${DIFF_KEYS.map(k => `<button type="button" data-d="${k}" aria-pressed="${k === ed}">${DIFFS[k].label}</button>`).join("")}</div></div>
+    <p class="ec-best">${e.runs ? `Best <b>${fmt(e.best)}</b> on ${DIFFS[ed].label}, furthest round <b>${e.bestRound}</b>.` : `No runs on ${DIFFS[ed].label} yet. Three lives, and later rounds make the dots vanish.`}</p>
+    <button class="btn block" id="ecGo">${live ? `Resume run, round ${eg.idx + 1}` : "Start a run"}</button></div>`;
+  el.innerHTML = html;
+  el.querySelectorAll(".dcard").forEach(c => c.addEventListener("click", () => playDaily(c.dataset.d)));
+  const cta = $("#ctaBtn"); if (cta) cta.addEventListener("click", () => playDaily(next));
+  el.querySelectorAll("#ecDiff button").forEach(b => b.addEventListener("click", () => { state.profile.settings.endlessDifficulty = b.dataset.d; Players.save(state.profile); renderHome(); }));
+  $("#ecGo").addEventListener("click", () => playEndless(ed));
+  const he = $("#homeEndless"); if (he) he.addEventListener("click", () => playEndless(ed));
+  const hs = $("#homeShare");
+  if (hs) hs.addEventListener("click", e2 => {
+    const date = ymd(), day = state.profile.daily.history[date] || {};
+    const lines = DIFF_KEYS.filter(d => day[d]).map(d => `${DIFFS[d].label.padEnd(6)} ${day[d].score}/500 ${day[d].s.map(x => EMOJI[tierOf(x)]).join("")}`);
+    copyText(`Plumb #${dailyNumber(date)}\n${lines.join("\n")}`, e2.currentTarget, "Copy today's results");
+  });
+  if (!next) {
+    const tick = () => {
+      const now = new Date(), mid = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      const sec = Math.max(0, Math.floor((mid - now) / 1000)), c = $("#homeCd");
+      if (!c || state.view !== "home") { clearInterval(homeTimer); return; }
+      c.textContent = [Math.floor(sec / 3600), Math.floor(sec / 60) % 60, sec % 60].map(v => String(v).padStart(2, "0")).join(":");
+      if (sec === 0) setTimeout(renderHome, 1500);
+    };
+    tick(); homeTimer = setInterval(tick, 1000);
+  }
+}
+
+/* ---------- home toy: three practice dots, never today's boards ---------- */
+const toyEl = $("#toy"), toyCv = $("#toyCv"), tctx = toyCv.getContext("2d");
+const toy = { pts: [], drag: -1, TW: 0, raf: 0, last: 0, touched: false, touchedAt: 0, hintIdx: 0, lbl: null, lblDir: null, droppedAt: 0, pinch: null, pinched: false, pinchedAt: 0, sel: -1, press: null, mode: "pinch", nudgeUntil: 0 };
+// Touch screens pinch to change weight; a mouse or trackpad gets the slider beside the board.
+const coarseMQ = window.matchMedia ? matchMedia("(pointer: coarse)") : null;
+toy.mode = coarseMQ && coarseMQ.matches ? "pinch" : "slider";
+function setWeightMode(m) {
+  if (toy.mode === m) return;
+  toy.mode = m; toy.pinch = null; toy.sliding = false;
+  if (m === "slider" && toy.sel >= 0 && !toy.pinched) $("#wslider").classList.add("hint");
+  toySyncUI(); toyStart();
+}
+if (coarseMQ && coarseMQ.addEventListener) coarseMQ.addEventListener("change", () => setWeightMode(coarseMQ.matches ? "pinch" : "slider"));
+const TOY_MAX_W = 5;   // weights run from 1 to 5
+function toySeed() {
+  toy.pts = genPoints(3, Math.random, false).map(p => ({ ax: p.x, ay: p.y, x: p.x, y: p.y, m: 1, ph: Math.random() * 6.28, ph2: Math.random() * 6.28 }));
+  toy.lbl = null; toy.lblDir = null; toy.sel = -1;
+  // The "Drag me" tag goes on the dot nearest the bottom, where a thumb reaches first.
+  toy.hintIdx = toy.pts.reduce((bi, p, i, a) => p.y > a[bi].y ? i : bi, 0);
+}
+function toyResize() {
+  const w = toyEl.clientWidth; if (!w) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  toy.TW = w; toyCv.width = Math.round(w * dpr); toyCv.height = Math.round(w * dpr);
+  tctx.setTransform(dpr, 0, 0, dpr, 0, 0); toyStart();
+}
+function toyStart() { toy.activeAt = performance.now(); if (!toy.raf) { toy.last = 0; toy.raf = requestAnimationFrame(toyLoop); } }
+function toyLoop(t) {
+  toy.raf = 0;
+  if (state.view !== "home" || document.hidden || !toy.TW) return;
+  const rm = reduceMotion(), hands = toy.drag >= 0 || toy.pinch || toy.sliding;
+  if (!hands && toy.last && t - toy.last < 30) { toy.raf = requestAnimationFrame(toyLoop); return; }   // idle: about 30 fps is plenty
+  const dt = toy.last ? Math.min(0.05, (t - toy.last) / 1000) : 0.016; toy.last = t;
+  const idle = !hands && t - (toy.activeAt || 0) > 7000;
+  toy.amp = toy.amp == null ? 1 : toy.amp + ((rm || idle ? 0 : 1) - toy.amp) * (1 - Math.exp(-dt * 2.5));
+  // Idle drift: each dot wanders a little around where it was left.
+  for (const [i, p] of toy.pts.entries()) {
+    if (i === toy.drag || rm) { p.x = p.ax; p.y = p.ay; continue; }
+    p.x = p.ax + 0.016 * toy.amp * Math.sin(t * 0.00042 + p.ph); p.y = p.ay + 0.016 * toy.amp * Math.cos(t * 0.00036 + p.ph2);
+  }
+  const c = centroid(toy.pts), TW = toy.TW, comR = Math.max(8, TW * 0.03), dotR = Math.max(6, TW * 0.024);
+  const save = [ctx, W]; ctx = tctx; W = TW;
+  let settling = false;
+  try {
+    ctx.clearRect(0, 0, W, W); drawBoard(true);
+    ctx.strokeStyle = T["ink-3"]; ctx.lineWidth = 1.25;
+    for (const p of toy.pts) { ctx.lineWidth = 0.75 + p.m * 0.5; ctx.beginPath(); ctx.moveTo(p.x * W, p.y * W); ctx.lineTo(c.x * W, c.y * W); ctx.stroke(); }
+
+    const rOf = (p, i) => dotR * Math.sqrt(p.m) * (i === toy.drag ? 1.2 : 1);   // dot area grows with weight
+    // Tags breathe in and out on a dot to suggest what to try. "Drag me" first; "Zoom me" a moment after the first drag.
+    const drawTag = (p, r, txt, a, phase) => {
+      if (!p || a <= 0) return null;
+      const pulse = rm ? 1 : 0.5 + 0.5 * Math.sin(t * 0.0042 + phase);   // about 1.5 s per cycle
+      const hx = p.x * W, hy = p.y * W;
+      if (!rm) {   // soft ring growing out of the dot
+        const k = ((t + phase * 240) % 1500) / 1500;
+        ctx.strokeStyle = T.pen; ctx.globalAlpha = a * 0.5 * (1 - k); ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(hx, hy, r + 4 + k * 16, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
+      }
+      ctx.font = '700 13px "Atkinson Hyperlegible", system-ui, sans-serif';
+      const tw = ctx.measureText(txt).width + 18, th = 24, below = hy < 40 + r;
+      const bx = clamp(hx - tw / 2, 4, W - tw - 4), by = below ? hy + r + 10 : hy - r - 10 - th;
+      ctx.globalAlpha = a * (0.45 + 0.55 * pulse);
+      ctx.fillStyle = T.pen; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(bx, by, tw, th, 12); else ctx.rect(bx, by, tw, th); ctx.fill();
+      ctx.fillStyle = T.board; ctx.textBaseline = "middle"; ctx.fillText(txt, bx + 9, by + th / 2 + 0.5);
+      ctx.globalAlpha = 1;
+      return { x: bx + tw / 2, y: by + th / 2 };
+    };
+    const dragA = toy.touched ? 1 - clamp((t - toy.touchedAt) / 350) : 1;
+    // "Zoom me" shows on the selected dot a moment after the first drag or tap, in pinch mode only.
+    let zoomA = toy.droppedAt && toy.mode === "pinch" && toy.sel >= 0 ? clamp((t - toy.droppedAt - 1200) / 400) : 0;
+    if (toy.pinched) zoomA *= 1 - clamp((t - toy.pinchedAt) / 350);
+    const tags = [drawTag(toy.pts[toy.hintIdx], rOf(toy.pts[toy.hintIdx] || { m: 1 }, toy.hintIdx), "Drag me", dragA, 0),
+                  drawTag(toy.pts[toy.sel], rOf(toy.pts[toy.sel] || { m: 1 }, toy.sel), "Zoom me", zoomA, 2)].filter(Boolean);
+    const hintBox = tags[0] || null;
+
+    toy.pts.forEach((p, i) => {
+      const r = rOf(p, i), x = p.x * W, y = p.y * W;
+      ctx.fillStyle = T.board; ctx.beginPath(); ctx.arc(x, y, r + 2.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = T.ink; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      if (p.m >= 1.05) {
+        ctx.fillStyle = T.board; ctx.font = `700 ${Math.max(9, Math.round(r * 0.72))}px "Atkinson Hyperlegible Mono", ui-monospace, monospace`;
+        ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(p.m.toFixed(1), x, y + 0.5); ctx.textAlign = "start";
+      }
+    });
+    if (toy.sel >= 0) {   // selected dot: a magenta ring that slowly turns, solid while you're changing its weight
+      const p = toy.pts[toy.sel], r = rOf(p, toy.sel) + 6;
+      ctx.strokeStyle = T.pen; ctx.lineWidth = 2;
+      if (!toy.pinch && !toy.sliding) { ctx.setLineDash([4, 4]); ctx.lineDashOffset = rm || idle ? 0 : -t * 0.012; }
+      ctx.beginPath(); ctx.arc(p.x * W, p.y * W, r, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); ctx.lineDashOffset = 0;
+    }
+    drawCoM(c.x * W, c.y * W, comR);
+
+    // "Center of Mass" label with a short arrow, placed in the diagonal with the most room.
+    ctx.font = '600 12px "Atkinson Hyperlegible", system-ui, sans-serif';
+    const lbl = "Center of Mass", lw = ctx.measureText(lbl).width, gap = comR + 24;
+    const cx = c.x * W, cy = c.y * W;
+    const obstacles = toy.pts.map(p => ({ x: p.x * W, y: p.y * W })).concat(tags);
+    const spot = d => {
+      const ax = cx + d[0] * gap * 0.75, ay = cy + d[1] * gap * 0.75;
+      const lx = d[0] > 0 ? ax + 4 : ax - lw - 4, ly = ay + (d[1] > 0 ? 9 : -9);
+      const mid = { x: lx + lw / 2, y: ly };
+      let score = Math.min(...obstacles.map(o => Math.hypot(o.x - mid.x, o.y - mid.y)));
+      if (lx < 4 || lx + lw > W - 4 || ly < 10 || ly > W - 10) score -= 400;
+      return score;
+    };
+    const DIRS = [[1, -1], [-1, -1], [1, 1], [-1, 1]];
+    const scores = DIRS.map(spot), best = scores.indexOf(Math.max(...scores));
+    if (toy.lblDir == null || scores[best] > scores[toy.lblDir] + 14) toy.lblDir = best;   // hysteresis so it doesn't flicker
+    const d = DIRS[toy.lblDir];
+    if (!toy.lbl || rm) toy.lbl = { x: d[0], y: d[1] };
+    else { const f = 1 - Math.exp(-dt * 10); toy.lbl.x += (d[0] - toy.lbl.x) * f; toy.lbl.y += (d[1] - toy.lbl.y) * f; }
+    settling = Math.abs(toy.lbl.x - d[0]) + Math.abs(toy.lbl.y - d[1]) > 0.01;
+    const L = Math.hypot(toy.lbl.x, toy.lbl.y) || 1, ux = toy.lbl.x / L, uy = toy.lbl.y / L;
+    const tipX = cx + ux * (comR + 4), tipY = cy + uy * (comR + 4);
+    const tailX = cx + ux * gap * 0.75, tailY = cy + uy * gap * 0.75;
+    ctx.strokeStyle = T["ink-2"]; ctx.fillStyle = T["ink-2"]; ctx.lineWidth = 1.25;
+    ctx.beginPath(); ctx.moveTo(tailX, tailY); ctx.lineTo(tipX + ux * 4, tipY + uy * 4); ctx.stroke();
+    const hs = 5, px = -uy, py = ux;
+    ctx.beginPath(); ctx.moveTo(tipX, tipY); ctx.lineTo(tipX + ux * hs * 1.4 + px * hs * 0.7, tipY + uy * hs * 1.4 + py * hs * 0.7); ctx.lineTo(tipX + ux * hs * 1.4 - px * hs * 0.7, tipY + uy * hs * 1.4 - py * hs * 0.7); ctx.closePath(); ctx.fill();
+    const lx = ux > 0 ? tailX + 4 : tailX - lw - 4, ly = tailY + (uy > 0 ? 8 : -8);
+    ctx.fillStyle = T.board; ctx.globalAlpha = 0.85; ctx.fillRect(lx - 3, ly - 8, lw + 6, 16); ctx.globalAlpha = 1;
+    ctx.fillStyle = T["ink-2"]; ctx.textBaseline = "middle"; ctx.fillText(lbl, lx, ly + 0.5);
+  } finally { [ctx, W] = save; }
+  const fading = (toy.touched && t - toy.touchedAt < 400) || (toy.droppedAt && t - toy.droppedAt < 1700) || (toy.pinched && t - toy.pinchedAt < 400);
+  // Keep animating only while something is moving or a tag is inviting a gesture; otherwise stop until the next touch.
+  const inviting = !rm && (!toy.touched || (toy.droppedAt && toy.mode === "pinch" && toy.sel >= 0 && !toy.pinched));
+  if (hands || settling || fading || inviting || toy.amp > 0.002 || (!idle && !rm)) toy.raf = requestAnimationFrame(toyLoop);
+}
+function toyPoint(e) { const r = toyEl.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }; }
+// A dot counts as touched within its radius plus a finger's width, so taps never land on the wrong dot.
+function hitDot(q) {
+  const dotR = Math.max(6, toy.TW * 0.024); let best = -1, bd = 1e9;
+  toy.pts.forEach((p, i) => {
+    const d = Math.hypot(p.x - q.x, p.y - q.y) * toy.TW, reach = dotR * Math.sqrt(p.m) + 22;
+    if (d < reach && d < bd) { bd = d; best = i; }
+  });
+  return best;
+}
+function markTouched() { if (!toy.touched) { toy.touched = true; toy.touchedAt = performance.now(); } }
+function markWeighted() { if (!toy.pinched) { toy.pinched = true; toy.pinchedAt = performance.now(); } $("#wslider").classList.remove("hint"); }
+function select(i) {
+  if (toy.sel === i) return;
+  toy.sel = i;
+  if (i >= 0 && !toy.droppedAt) toy.droppedAt = performance.now();
+  if (i >= 0 && toy.mode === "slider" && !toy.pinched) $("#wslider").classList.add("hint");
+  toySyncUI(); toyStart();
+}
+function setWeight(w) {
+  if (toy.sel < 0) return;
+  toy.pts[toy.sel].m = clamp(w, 1, TOY_MAX_W); markWeighted(); toySyncUI(); toyStart();
+}
+function nudge() {
+  toy.nudgeUntil = performance.now() + 1800; toySyncUI();
+  const n = $("#toyNote"); n.classList.remove("shake"); void n.offsetWidth; n.classList.add("shake");
+  setTimeout(toySyncUI, 1850);
+}
+let noteCache = "";
+function toySyncUI() {
+  const sl = toy.mode === "slider", has = toy.sel >= 0, w = has ? toy.pts[toy.sel].m : 1;
+  $("#toyRow").classList.toggle("slider", sl);
+  const ws = $("#wslider"); ws.hidden = !sl; ws.classList.toggle("off", !has);
+  ws.setAttribute("aria-disabled", String(!has)); ws.setAttribute("aria-valuenow", w.toFixed(1));
+  $("#wsVal").textContent = has ? w.toFixed(1) : "–";
+  const k = (w - 1) / (TOY_MAX_W - 1);
+  $("#wsFill").style.height = (has ? k * 100 : 0) + "%"; $("#wsThumb").style.top = (has ? (1 - k) * 100 : 100) + "%";
+  const how = sl ? "Use the slider or scroll over it to change it." : "Pinch anywhere to change it.";
+  let note = "";
+  if (performance.now() < toy.nudgeUntil) note = sl ? "Click a dot first to select it." : "Tap a dot first to select it.";
+  else if (has) note = `Selected dot weighs <b>${w.toFixed(1)}</b>. ${how}`;
+  else if (toy.touched) note = sl ? "Click a dot to select it, then use the slider to change its weight." : "Tap a dot to select it, then pinch anywhere to change its weight.";
+  if (note !== noteCache) { $("#toyNote").innerHTML = note; noteCache = note; }
+}
+
+// One finger: a short tap selects a dot (or clears the selection on empty space); moving more than 6 px drags it.
+function toyDown(e) {
+  const q = toyPoint(e), i = hitDot(q);
+  toy.press = { i, x: e.clientX, y: e.clientY, moved: false, off: i >= 0 ? { x: toy.pts[i].ax - q.x, y: toy.pts[i].ay - q.y } : null };
+}
+function toyMoveTo(e) {
+  const pr = toy.press; if (!pr) return;
+  if (!pr.moved) {
+    if (Math.hypot(e.clientX - pr.x, e.clientY - pr.y) < 6) return;
+    pr.moved = true;
+    if (pr.i >= 0) { toy.drag = pr.i; select(pr.i); markTouched(); toyEl.classList.add("dragging"); }
+  }
+  if (toy.drag >= 0) {
+    const q = toyPoint(e), p = toy.pts[toy.drag];
+    p.ax = clamp(q.x + pr.off.x, 0.06, 0.94); p.ay = clamp(q.y + pr.off.y, 0.1, 0.94); toyStart();
+  }
+}
+function toyRelease() {
+  const pr = toy.press; toy.press = null;
+  if (pr && !pr.moved) { if (pr.i >= 0) { markTouched(); select(pr.i); } else select(-1); }
+  toy.drag = -1; toyEl.classList.remove("dragging"); toySyncUI(); toyStart();
+}
+toyEl.addEventListener("pointerdown", e => { if (e.pointerType === "touch") { setWeightMode("pinch"); return; } if (e.pointerType === "mouse") setWeightMode("slider"); try { toyEl.setPointerCapture(e.pointerId); } catch {} toyDown(e); });
+toyEl.addEventListener("pointermove", e => { if (e.pointerType !== "touch") toyMoveTo(e); });
+toyEl.addEventListener("pointerup", e => { if (e.pointerType !== "touch") toyRelease(); });
+toyEl.addEventListener("pointercancel", e => { if (e.pointerType !== "touch") toyRelease(); });
+toyEl.addEventListener("touchstart", e => {
+  e.preventDefault();
+  if (e.touches.length >= 2) { toy.press = null; toy.drag = -1; toyEl.classList.remove("dragging"); return; }   // the page-wide pinch handler takes over
+  toyDown(e.changedTouches[0]);
+}, { passive: false });
+toyEl.addEventListener("touchmove", e => { e.preventDefault(); if (!toy.pinch && e.touches.length === 1) toyMoveTo(e.touches[0]); }, { passive: false });
+toyEl.addEventListener("touchend", e => { e.preventDefault(); if (e.touches.length === 0 && !toy.pinch) toyRelease(); }, { passive: false });
+toyEl.addEventListener("touchcancel", () => { toy.press = null; toyRelease(); });
+
+// Pinch mode: with a dot selected, two fingers anywhere on the home screen change its weight.
+// Nothing else reacts to the pinch, and without a selection nothing changes.
+const fingerGap = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+const homeEl = $("#home");
+homeEl.addEventListener("touchstart", e => {
+  if (state.view !== "home" || toy.mode !== "pinch" || e.touches.length < 2 || toy.pinch) return;
+  if (toy.sel < 0) {
+    const r = toyEl.getBoundingClientRect(), on = t => t.clientX >= r.left && t.clientX <= r.right && t.clientY >= r.top && t.clientY <= r.bottom;
+    if (on(e.touches[0]) || on(e.touches[1])) { e.preventDefault(); nudge(); }
+    return;
+  }
+  e.preventDefault();
+  toy.pinch = { d0: Math.max(20, fingerGap(e.touches[0], e.touches[1])), w0: toy.pts[toy.sel].m };
+  markTouched(); toyStart();
+}, { passive: false });
+homeEl.addEventListener("touchmove", e => {
+  if (!toy.pinch) return;
+  e.preventDefault();
+  if (e.touches.length >= 2) setWeight(toy.pinch.w0 * fingerGap(e.touches[0], e.touches[1]) / toy.pinch.d0);
+}, { passive: false });
+const pinchEnd = e => { if (toy.pinch && e.touches.length < 2) { toy.pinch = null; toyStart(); } };
+homeEl.addEventListener("touchend", pinchEnd); homeEl.addEventListener("touchcancel", pinchEnd);
+
+// Slider mode: a vertical weight slider beside the board drives the selected dot.
+const wsEl = $("#wslider");
+function wsAt(e) { const r = $("#wsTrack").getBoundingClientRect(); setWeight(1 + clamp(1 - (e.clientY - r.top) / r.height) * (TOY_MAX_W - 1)); }
+function wsDown(e) { if (toy.sel < 0) { nudge(); return false; } toy.sliding = true; wsAt(e); return true; }
+const wsUp = () => { if (toy.sliding) { toy.sliding = false; toyStart(); } };
+wsEl.addEventListener("pointerdown", e => { if (e.pointerType === "touch") return; if (wsDown(e)) try { wsEl.setPointerCapture(e.pointerId); } catch {} });
+wsEl.addEventListener("pointermove", e => { if (e.pointerType !== "touch" && toy.sliding) wsAt(e); });
+wsEl.addEventListener("pointerup", wsUp); wsEl.addEventListener("pointercancel", wsUp);
+wsEl.addEventListener("touchstart", e => { e.preventDefault(); wsDown(e.changedTouches[0]); }, { passive: false });
+wsEl.addEventListener("touchmove", e => { e.preventDefault(); if (toy.sliding) wsAt(e.touches[0]); }, { passive: false });
+wsEl.addEventListener("touchend", e => { e.preventDefault(); wsUp(); }, { passive: false });
+wsEl.addEventListener("touchcancel", wsUp);
+wsEl.addEventListener("keydown", e => {
+  if (toy.sel < 0) return;
+  const w = toy.pts[toy.sel].m, step = { ArrowUp: 0.1, ArrowRight: 0.1, ArrowDown: -0.1, ArrowLeft: -0.1, PageUp: 1, PageDown: -1 }[e.key];
+  if (step != null) { e.preventDefault(); setWeight(w + step); }
+  else if (e.key === "Home") { e.preventDefault(); setWeight(1); } else if (e.key === "End") { e.preventDefault(); setWeight(TOY_MAX_W); }
+});
+
+
+
+// On a computer: trackpad pinch anywhere on the board, or the mouse wheel over the selected dot.
+toyEl.addEventListener("wheel", e => {
+  if (toy.sel < 0) return;
+  const q = toyPoint(e), p = toy.pts[toy.sel];
+  if (!e.ctrlKey && Math.hypot(p.x - q.x, p.y - q.y) > 0.1) return;   // ordinary scrolling elsewhere still scrolls the page
+  e.preventDefault();
+  setWeight(p.m * Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0025)));
+}, { passive: false });
+document.addEventListener("visibilitychange", () => { if (!document.hidden) toyStart(); });
+
+/* ---------- leaderboard ---------- */
+function renderLb() {
+  const el = $("#lb"), d = state.lbDiff || defaultDiff(), many = Players.index.list.length > 1;
+  el.innerHTML = `<div class="phead"><h1 class="vtitle">Leaderboard</h1><div class="seg small" id="lbDiff" role="group" aria-label="Difficulty">${DIFF_KEYS.map(k => `<button type="button" data-d="${k}" aria-pressed="${k === d}">${DIFFS[k].label}</button>`).join("")}</div></div>
+    ${panelDevice(d)}
+    <div class="empty">${many ? "These boards rank the players on this device." : "Right now this ranks players on this device, so it's just you."} Friend leaderboards come with accounts in the public version.${many ? "" : `<button class="btn small" id="lbAdd">Add a player</button>`}</div>`;
+  el.querySelectorAll("#lbDiff button").forEach(b => b.addEventListener("click", () => { state.lbDiff = b.dataset.d; renderLb(); }));
+  const add = $("#lbAdd"); if (add) add.addEventListener("click", () => { state.manage = "new"; go("stats"); });
+  const p = state.profile;
+  el.querySelectorAll(".lb-row[data-id]").forEach(r => { const m = Players.index.list.find(x => x.id === r.dataset.id); if (m) { r.querySelector(".nm").textContent = m.name + (m.id === p.id ? " (you)" : ""); r.querySelector(".av").textContent = m.name.trim()[0] || "?"; } });
+}
+
+/* ---------- views + transitions ---------- */
+const SECTION = { home: "#home", daily: "#play", endless: "#play", stats: "#stats", lb: "#lb" };
+function setView(v) {
+  if (Diag.on) diagLog(`screen: ${v}`);
+  if (!SECTION[v] || (!state.profile && v !== "home" && v !== "stats")) v = "home";
+  state.view = v;
+  const inGame = isGame(v);
+  if (!inGame) state.playDiff = null;
+  for (const sel of new Set(Object.values(SECTION))) $(sel).hidden = SECTION[v] !== sel;
+  $("#brand").hidden = inGame; $("#backBtn").hidden = !inGame;
+  $("#tabs").hidden = inGame || !state.profile;
+  document.body.classList.toggle("with-tabs", !$("#tabs").hidden);
+  $("#foot").hidden = inGame;
+  renderTabs(); renderFoot(); clearInterval(homeTimer);
+  if (v === "stats") { renderStats(); return; }
+  if (v === "lb") { renderLb(); return; }
+  if (v === "home") { renderHome(); toyResize(); return; }
+  const g = ensureGame();
+  if (g && g.phase === "aim") g.rounds[g.idx].shownAt = performance.now();
+  state.aim = null;
+  resize(); kick(Math.max(700, g && g.rounds[g.idx].fade ? g.rounds[g.idx].fade + 500 : 0));
+  renderPlay();
+}
+const EASE = "cubic-bezier(.2,.8,.2,1)";
+// Shared-element move: the element starts where `from` was on screen and settles into its own place.
+function morph(el, from, ms = 420) {
+  const to = el.getBoundingClientRect(); if (!to.width || !from.width) return;
+  const sx = from.width / to.width;
+  el.animate([{ transformOrigin: "0 0", transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${sx})` }, { transformOrigin: "0 0", transform: "none" }], { duration: ms, easing: EASE });
+}
+function rise(els, delay = 90) {
+  els.filter(Boolean).forEach((el, i) => el.animate([{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }], { duration: 260, delay: delay + i * 45, easing: EASE, fill: "backwards" }));
+}
+function go(v) {
+  const from = state.view, rm = reduceMotion() || !Element.prototype.animate;
+  let rect = null;
+  if (!rm && from === "home" && isGame(v)) rect = toyEl.getBoundingClientRect();
+  if (!rm && isGame(from) && v === "home") rect = board.getBoundingClientRect();
+  setView(v);
+  window.scrollTo(0, 0);
+  if (rm) return;
+  if (isGame(v)) {
+    if (rect) morph(board, rect);
+    rise([$("#hud"), $("#readout")], rect ? 160 : 40);
+  } else if (v === "home") {
+    if (rect) morph(toyEl, rect, 380);
+    rise([$("#greet"), ...$("#homeMain").children], rect ? 120 : 30);
+  } else rise([...$(SECTION[v]).children].slice(0, 4), 20);
+}
+function renderFoot() {
+  $("#foot").textContent = LS.ok ? "Players and progress are saved on this device. Daily boards reset at your local midnight." : "This browser is blocking storage, so progress won't be kept after you close the page.";
+}
+
+/* ---------- theme + resize ---------- */
+readTokens();
+new ResizeObserver(resize).observe(board);
+new ResizeObserver(() => { if (state.view === "home") toyResize(); }).observe(toyEl);
+new MutationObserver(() => { readTokens(); redraw(); }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+if (window.matchMedia) { const mq = matchMedia("(prefers-color-scheme: dark)"); if (mq.addEventListener) mq.addEventListener("change", () => { readTokens(); redraw(); }); }
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(redraw);
+
+/* ---------- touch diagnostics (temporary): the Touch log button in the header ---------- */
+const BOOT_AT = performance.now();
+const Diag = { on: false, aim: 0, lines: [], c: {}, t0: 0, lastMove: 0, maxGap: 0, moveRun: 0, runGap: 0, runDelay: 0, maxDelay: 0, frameMax: 0, frames: 0, frameSum: 0, lastFrame: 0, raf: 0, stallMax: 0, timer: 0, renderT: 0 };
+function diagReset() { Object.assign(Diag, { aim: 0, lines: [], c: { start: 0, move: 0, end: 0, cancel: 0, moveNotCancelable: 0, pointercancel: 0, scroll: 0 }, t0: performance.now(), maxGap: 0, moveRun: 0, runGap: 0, runDelay: 0, maxDelay: 0, frameMax: 0, frames: 0, frameSum: 0, stallMax: 0 }); }
+diagReset();
+const ms = v => Math.round(v) + " ms";
+function diagFlushMoves() { if (Diag.moveRun) { Diag.lines.push(`  move x${Diag.moveRun}, longest gap ${ms(Diag.runGap)}, handled up to ${ms(Diag.runDelay)} late`); Diag.moveRun = 0; Diag.runGap = 0; Diag.runDelay = 0; } }
+function diagLog(line) { if (!Diag.on) return; diagFlushMoves(); Diag.lines.push(`${String(Math.round(performance.now() - Diag.t0)).padStart(6)} ${line}`); if (Diag.lines.length > 60) Diag.lines.splice(0, Diag.lines.length - 60); diagRender(); }
+const where = e => { const t = e.target; return t && t.id ? "#" + t.id : t && t.className && typeof t.className === "string" ? "." + t.className.split(" ")[0] : t ? t.nodeName.toLowerCase() : "?"; };
+// How long after the finger moved did the page get to run? Large values mean the page was busy.
+const lateBy = e => { const d = performance.now() - e.timeStamp; return d >= 0 && d < 10000 ? d : 0; };
+for (const type of ["touchstart", "touchmove", "touchend", "touchcancel"]) {
+  window.addEventListener(type, e => {
+    if (!Diag.on) return;
+    const k = type.slice(5); Diag.c[k === "start" ? "start" : k === "move" ? "move" : k === "end" ? "end" : "cancel"]++;
+    const late = lateBy(e); Diag.maxDelay = Math.max(Diag.maxDelay, late);
+    if (type === "touchmove") {
+      if (!e.cancelable) Diag.c.moveNotCancelable++;
+      const now = performance.now(), gap = Diag.lastMove ? now - Diag.lastMove : 0; Diag.lastMove = now;
+      Diag.moveRun++; Diag.runGap = Math.max(Diag.runGap, gap); Diag.maxGap = Math.max(Diag.maxGap, gap); Diag.runDelay = Math.max(Diag.runDelay, late);
+      if (Diag.moveRun >= 30) diagFlushMoves();
+      diagRender(); return;
+    }
+    if (type === "touchstart") Diag.lastMove = 0;
+    const g = game();
+    diagLog(`${type} fingers=${e.touches.length} cancelable=${e.cancelable ? "yes" : "NO"} on ${where(e)} phase=${g ? g.phase : state.view} handled ${ms(late)} late, aimUpdates=${Diag.aim}`);
+  }, { capture: true, passive: true });
+}
+window.addEventListener("pointercancel", e => { if (Diag.on) { Diag.c.pointercancel++; diagLog(`pointercancel ${e.pointerType} on ${where(e)}`); } }, true);
+window.addEventListener("scroll", () => { if (Diag.on) { Diag.c.scroll++; diagLog(`page scrolled to ${Math.round(scrollY)}`); } }, { passive: true });
+document.addEventListener("visibilitychange", () => diagLog(`page ${document.hidden ? "hidden" : "visible again"}`));
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => diagLog(`fonts ready, ${ms(performance.now() - BOOT_AT)} after the page started`));
+function diagFrames(t) {
+  if (!Diag.on) return;
+  if (Diag.lastFrame && !document.hidden) { const f = t - Diag.lastFrame; if (f < 1000) { Diag.frameMax = Math.max(Diag.frameMax, f); Diag.frames++; Diag.frameSum += f; } }
+  Diag.lastFrame = t; Diag.raf = requestAnimationFrame(diagFrames);
+}
+// A timer that should fire every 100 ms. When it fires late, the page (or the app around it) was busy.
+let stallLast = 0, stallRun = 0;
+function diagStallTick() {
+  const n = performance.now(), late = stallLast ? n - stallLast - 100 : 0; stallLast = n;
+  if (document.hidden) return;
+  if (late > 60) { stallRun += late; Diag.stallMax = Math.max(Diag.stallMax, late); }
+  else if (stallRun) { diagLog(`page was busy for about ${ms(stallRun)}`); stallRun = 0; }
+}
+function diagText() {
+  diagFlushMoves();
+  const r = board.getBoundingClientRect(), g = game(), avgF = Diag.frames ? Diag.frameSum / Diag.frames : 0;
+  return [`Plumb touch log  ${new Date().toISOString()}`,
+    `framed=${window.top !== window} touchMode=${state.touch} view=${state.view} phase=${g ? g.phase : "-"} dpr=${devicePixelRatio} board=${Math.round(r.width)}px`,
+    `counts start=${Diag.c.start} move=${Diag.c.move} end=${Diag.c.end} cancel=${Diag.c.cancel} moveNotCancelable=${Diag.c.moveNotCancelable} pointercancel=${Diag.c.pointercancel} scroll=${Diag.c.scroll} aimUpdates=${Diag.aim}`,
+    `longest gap between moves ${ms(Diag.maxGap)}, touch handled up to ${ms(Diag.maxDelay)} late`,
+    `frames: average ${avgF.toFixed(1)} ms (${avgF ? Math.round(1000 / avgF) : 0} fps), longest ${ms(Diag.frameMax)}, longest busy stretch ${ms(Diag.stallMax)}`,
+    navigator.userAgent, "", ...Diag.lines].join("\n");
+}
+// Repaint the panel at most twice a second, so the log itself never slows the game.
+function diagRender() { if (!Diag.on || Diag.renderT) return; Diag.renderT = setTimeout(() => { Diag.renderT = 0; if (Diag.on) $("#diagOut").textContent = diagText(); }, 500); }
+function diagToggle(on, keep) {
+  Diag.on = on; $("#diag").hidden = !on; $("#diagBtn").setAttribute("aria-pressed", String(on));
+  try { localStorage.setItem("plumb.touchlog", on ? "1" : "0"); } catch {}
+  clearInterval(Diag.timer); cancelAnimationFrame(Diag.raf);
+  if (on) {
+    if (!keep) diagReset();
+    Diag.lastFrame = 0; stallLast = 0; Diag.raf = requestAnimationFrame(diagFrames); Diag.timer = setInterval(diagStallTick, 100); diagRender();
+  }
+}
+$("#diagBtn").addEventListener("click", () => diagToggle(!Diag.on));
+$("#diagClose").addEventListener("click", () => diagToggle(false));
+$("#diagClear").addEventListener("click", () => { diagReset(); $("#diagOut").textContent = diagText(); });
+$("#diagCopy").addEventListener("click", e => copyText(diagText(), e.currentTarget, "Copy log"));
+// The log stays on across reopens, so it can record the first few seconds after the page loads.
+let diagWasOn = false; try { diagWasOn = localStorage.getItem("plumb.touchlog") === "1"; } catch {}
+if (diagWasOn || location.hash === "#debug") { Diag.t0 = 0; diagToggle(true, true); diagLog(`page opened (log times are ms since the page started)`); }
+
+/* ---------- boot ---------- */
+function start(data) {
+  if (data && Object.keys(data).length) diagLog("page reloaded by an app update");
+  const active = Players.index.active && Players.load(Players.index.active);
+  if (active) activate(active);
+  else if (Players.index.list.length) { const p = Players.load(Players.index.list[0].id); if (p) { Players.index.active = p.id; Players.saveIndex(); activate(p); } }
+  if (data && data.games && state.profile && data.pid === state.profile.id) {
+    for (const [k, g] of Object.entries(data.games)) { if (g && g.mode === "endless" && g.phase !== "done") { g.revealAt = 0; if (g.rounds[g.idx]) g.rounds[g.idx].shownAt = performance.now(); state.games[k] = g; } }
+  }
+  toySeed(); toySyncUI();
+  setView(data && data.view && state.profile ? data.view : "home");
+}
+const hot = window.claude && window.claude.hot;
+try { if (hot && hot.snapshot) hot.snapshot(() => ({ view: state.view, pid: state.profile && state.profile.id, games: Object.fromEntries(Object.entries(state.games).filter(([k]) => k.startsWith("endless:"))) })); } catch {}
+if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
+})();
+</script>
+
+</body></html>
+</body>
+</html>
