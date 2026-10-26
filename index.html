@@ -855,19 +855,38 @@ board.addEventListener("touchstart", e => {
   setTouch(true);
   const t = e.changedTouches[0];
   if (g.phase === "reveal") {
-    tapReveal();
-    const g2 = game(); if (!g2 || g2.phase !== "aim") return;
-    // That tap started the next round. Keep following the same finger: the marker appears as soon as it moves.
-    touchId = t.identifier; state.down = true; state.waitMove = { x: t.clientX, y: t.clientY };
+    // Decided when the finger lifts or moves: a tap skips the animation or continues; a drag starts aiming in the next round.
+    touchId = t.identifier; state.down = true;
+    state.revealTouch = { x: t.clientX, y: t.clientY, moved: false, last: { clientX: t.clientX, clientY: t.clientY }, timer: 0 };
     return;
   }
   if (g.phase !== "aim") return;
   touchId = t.identifier; state.down = true; state.popAt = performance.now();
   touchAim(t); syncLock(); kick(160);
 }, NOSCROLL);
+// The result stays up at least this long, so a quick drag can't skip it unseen (the score is readable by then).
+const MIN_RESULT_MS = 450;
+const lastRound = g => g.mode === "daily" ? g.idx >= 4 : g.lives <= 0;
+function dragIntoNextRound() {
+  const rt = state.revealTouch, g = game(); if (!rt || !g || g.phase !== "reveal" || lastRound(g)) return;
+  const wait = MIN_RESULT_MS - (performance.now() - g.revealAt);
+  if (wait > 0) { clearTimeout(rt.timer); rt.timer = setTimeout(dragIntoNextRound, wait + 5); return; }
+  state.revealTouch = null;
+  g.revealAt = performance.now() - 9999; countSkip(); advance();
+  if (game().phase !== "aim") return;
+  state.popAt = performance.now(); kick(160);
+  touchAim(rt.last); syncLock();
+}
 board.addEventListener("touchmove", e => {
   e.preventDefault();
-  const t = ownTouch(e), g = game(); if (!t || !g || g.phase !== "aim" || !state.down) return;
+  const t = ownTouch(e), rt = state.revealTouch;
+  if (t && rt) {
+    rt.last = { clientX: t.clientX, clientY: t.clientY };
+    if (!rt.moved && Math.hypot(t.clientX - rt.x, t.clientY - rt.y) >= 8) rt.moved = true;
+    if (rt.moved) dragIntoNextRound();
+    return;
+  }
+  const g = game(); if (!t || !g || g.phase !== "aim" || !state.down) return;
   if (state.waitMove) {
     if (Math.hypot(t.clientX - state.waitMove.x, t.clientY - state.waitMove.y) < 4) return;
     state.waitMove = null; state.popAt = performance.now(); kick(160);
@@ -877,6 +896,8 @@ board.addEventListener("touchmove", e => {
 const touchDone = e => {
   e.preventDefault();
   if (!ownTouch(e)) return;
+  const rt = state.revealTouch;
+  if (rt) { clearTimeout(rt.timer); state.revealTouch = null; touchId = null; state.down = false; tapReveal(); return; }   // a tap, or a drag on the last round
   touchId = null; state.down = false; state.finger = null; state.waitMove = null; syncLock(); redraw();
 };
 board.addEventListener("touchend", touchDone, NOSCROLL);
