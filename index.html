@@ -226,8 +226,7 @@ textarea.input{font:12px/1.4 var(--font-mono);min-height:84px;resize:vertical;wo
 .top{min-height:36px}
 .top-r{display:flex;align-items:center;gap:8px;min-width:0}
 .top-r .who{max-width:none}
-#diagBtn{padding:5px 9px;font-size:12px;touch-action:manipulation}
-#diagBtn[aria-pressed="true"]{border-color:var(--pen);color:var(--pen)}
+
 button.brand{border:0;background:none;padding:0;cursor:pointer}
 .back{display:inline-flex;align-items:center;gap:2px;border:0;background:none;padding:6px 10px 6px 0;font-weight:600;font-size:16px;color:var(--ink);cursor:pointer;border-radius:6px}
 .back svg{width:20px;height:20px}
@@ -306,9 +305,6 @@ body.with-tabs .app{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
 .life.drain{animation:lifeDrain .55s ease-in}
 @keyframes lifeDrain{0%{background:var(--pen);border:0;transform:none}15%{transform:translateX(-3px)}30%{transform:translateX(3px)}45%{transform:translateX(-2px);background:var(--pen)}100%{transform:none}}
 
-.diag{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:11px/1.4 var(--font-mono);color:var(--ink-2);min-width:0}
-.diag pre{margin:4px 0 0;white-space:pre-wrap;word-break:break-word;font:inherit;user-select:text;-webkit-user-select:text}
-.diag .row{gap:6px}
 @media (prefers-reduced-motion: reduce){.flash{transition:none}.dcard,.toy-hint,.btn{transition:none}.shake,.life.drain,.wslider.hint .ws-thumb{animation:none}.wslider{transition:none}}
 </style>
 
@@ -316,8 +312,7 @@ body.with-tabs .app{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
   <header class="top">
     <button class="brand" id="brand" type="button" aria-label="Plumb home"><svg viewBox="0 0 20 24" aria-hidden="true"><line x1="10" y1="0" x2="10" y2="8" stroke="currentColor" stroke-width="1.8"/><path d="M6 8.5 H14 V11 L10 23 L6 11 Z" fill="currentColor"/></svg>Plumb</button>
     <button class="back" id="backBtn" type="button" hidden><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Home</button>
-    <span class="top-r"><button class="btn small" id="diagBtn" type="button" aria-pressed="false">Touch log</button>
-    <button class="who" id="who" type="button" hidden aria-label="Players and settings"><span class="av" id="whoAv"></span><span class="nm" id="whoName"></span></button></span>
+    <span class="top-r"><button class="who" id="who" type="button" hidden aria-label="Players and settings"><span class="av" id="whoAv"></span><span class="nm" id="whoName"></span></button></span>
   </header>
 
   <section id="home" class="home">
@@ -345,7 +340,6 @@ body.with-tabs .app{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
 
   <section id="stats" class="stats" hidden></section>
   <section id="lb" class="stats" hidden></section>
-  <div class="diag" id="diag" hidden><div class="row"><b style="color:var(--ink)">Touch log</b><button class="btn small" id="diagCopy" type="button">Copy log</button><button class="btn small" id="diagClear" type="button">Clear</button><button class="btn small" id="diagClose" type="button">Close</button></div><pre id="diagOut"></pre><pre class="sharebox" hidden></pre></div>
   <p class="foot" id="foot"></p>
 </div>
 
@@ -844,7 +838,6 @@ const NOSCROLL = { passive: false };
 let touchId = null;
 const ownTouch = e => [...e.changedTouches].find(t => t.identifier === touchId);
 function touchAim(t) {
-  Diag.aim++;
   state.aim = liftedAim(t); state.finger = toNorm(t);
   const now = performance.now();
   if (now - lastDrawAt > 12) draw(now); else redraw();   // draw right away, but never twice in one frame
@@ -1043,7 +1036,7 @@ function renderEndlessDone(g, ro) {
 }
 function restartEndless() { state.games[gameKey("endless")] = newEndless(diff()); kick(50); renderPlay(); }
 function copyText(text, btn, label = "Copy result") {
-  const box = btn.closest(".summary, .manage, .diag")?.querySelector(".sharebox");
+  const box = btn.closest(".summary, .manage")?.querySelector(".sharebox");
   const done = ok => {
     btn.textContent = ok ? "Copied" : "Select and copy below";
     if (!ok && box) { box.hidden = false; box.textContent = text; const r = document.createRange(); r.selectNodeContents(box); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
@@ -1630,7 +1623,6 @@ function renderLb() {
 /* ---------- views + transitions ---------- */
 const SECTION = { home: "#home", daily: "#play", endless: "#play", stats: "#stats", lb: "#lb" };
 function setView(v) {
-  if (Diag.on) diagLog(`screen: ${v}`);
   if (!SECTION[v] || (!state.profile && v !== "home" && v !== "stats")) v = "home";
   state.view = v;
   const inGame = isGame(v);
@@ -1688,83 +1680,10 @@ new MutationObserver(() => { readTokens(); redraw(); }).observe(document.documen
 if (window.matchMedia) { const mq = matchMedia("(prefers-color-scheme: dark)"); if (mq.addEventListener) mq.addEventListener("change", () => { readTokens(); redraw(); }); }
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(redraw);
 
-/* ---------- touch diagnostics (temporary): the Touch log button in the header ---------- */
-const BOOT_AT = performance.now();
-const Diag = { on: false, aim: 0, lines: [], c: {}, t0: 0, lastMove: 0, maxGap: 0, moveRun: 0, runGap: 0, runDelay: 0, maxDelay: 0, frameMax: 0, frames: 0, frameSum: 0, lastFrame: 0, raf: 0, stallMax: 0, timer: 0, renderT: 0 };
-function diagReset() { Object.assign(Diag, { aim: 0, lines: [], c: { start: 0, move: 0, end: 0, cancel: 0, moveNotCancelable: 0, pointercancel: 0, scroll: 0 }, t0: performance.now(), maxGap: 0, moveRun: 0, runGap: 0, runDelay: 0, maxDelay: 0, frameMax: 0, frames: 0, frameSum: 0, stallMax: 0 }); }
-diagReset();
-const ms = v => Math.round(v) + " ms";
-function diagFlushMoves() { if (Diag.moveRun) { Diag.lines.push(`  move x${Diag.moveRun}, longest gap ${ms(Diag.runGap)}, handled up to ${ms(Diag.runDelay)} late`); Diag.moveRun = 0; Diag.runGap = 0; Diag.runDelay = 0; } }
-function diagLog(line) { if (!Diag.on) return; diagFlushMoves(); Diag.lines.push(`${String(Math.round(performance.now() - Diag.t0)).padStart(6)} ${line}`); if (Diag.lines.length > 60) Diag.lines.splice(0, Diag.lines.length - 60); diagRender(); }
-const where = e => { const t = e.target; return t && t.id ? "#" + t.id : t && t.className && typeof t.className === "string" ? "." + t.className.split(" ")[0] : t ? t.nodeName.toLowerCase() : "?"; };
-// How long after the finger moved did the page get to run? Large values mean the page was busy.
-const lateBy = e => { const d = performance.now() - e.timeStamp; return d >= 0 && d < 10000 ? d : 0; };
-for (const type of ["touchstart", "touchmove", "touchend", "touchcancel"]) {
-  window.addEventListener(type, e => {
-    if (!Diag.on) return;
-    const k = type.slice(5); Diag.c[k === "start" ? "start" : k === "move" ? "move" : k === "end" ? "end" : "cancel"]++;
-    const late = lateBy(e); Diag.maxDelay = Math.max(Diag.maxDelay, late);
-    if (type === "touchmove") {
-      if (!e.cancelable) Diag.c.moveNotCancelable++;
-      const now = performance.now(), gap = Diag.lastMove ? now - Diag.lastMove : 0; Diag.lastMove = now;
-      Diag.moveRun++; Diag.runGap = Math.max(Diag.runGap, gap); Diag.maxGap = Math.max(Diag.maxGap, gap); Diag.runDelay = Math.max(Diag.runDelay, late);
-      if (Diag.moveRun >= 30) diagFlushMoves();
-      diagRender(); return;
-    }
-    if (type === "touchstart") Diag.lastMove = 0;
-    const g = game();
-    diagLog(`${type} fingers=${e.touches.length} cancelable=${e.cancelable ? "yes" : "NO"} on ${where(e)} phase=${g ? g.phase : state.view} handled ${ms(late)} late, aimUpdates=${Diag.aim}`);
-  }, { capture: true, passive: true });
-}
-window.addEventListener("pointercancel", e => { if (Diag.on) { Diag.c.pointercancel++; diagLog(`pointercancel ${e.pointerType} on ${where(e)}`); } }, true);
-window.addEventListener("scroll", () => { if (Diag.on) { Diag.c.scroll++; diagLog(`page scrolled to ${Math.round(scrollY)}`); } }, { passive: true });
-document.addEventListener("visibilitychange", () => diagLog(`page ${document.hidden ? "hidden" : "visible again"}`));
-if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => diagLog(`fonts ready, ${ms(performance.now() - BOOT_AT)} after the page started`));
-function diagFrames(t) {
-  if (!Diag.on) return;
-  if (Diag.lastFrame && !document.hidden) { const f = t - Diag.lastFrame; if (f < 1000) { Diag.frameMax = Math.max(Diag.frameMax, f); Diag.frames++; Diag.frameSum += f; } }
-  Diag.lastFrame = t; Diag.raf = requestAnimationFrame(diagFrames);
-}
-// A timer that should fire every 100 ms. When it fires late, the page (or the app around it) was busy.
-let stallLast = 0, stallRun = 0;
-function diagStallTick() {
-  const n = performance.now(), late = stallLast ? n - stallLast - 100 : 0; stallLast = n;
-  if (document.hidden) return;
-  if (late > 60) { stallRun += late; Diag.stallMax = Math.max(Diag.stallMax, late); }
-  else if (stallRun) { diagLog(`page was busy for about ${ms(stallRun)}`); stallRun = 0; }
-}
-function diagText() {
-  diagFlushMoves();
-  const r = board.getBoundingClientRect(), g = game(), avgF = Diag.frames ? Diag.frameSum / Diag.frames : 0;
-  return [`Plumb touch log  ${new Date().toISOString()}`,
-    `framed=${window.top !== window} touchMode=${state.touch} view=${state.view} phase=${g ? g.phase : "-"} dpr=${devicePixelRatio} board=${Math.round(r.width)}px`,
-    `counts start=${Diag.c.start} move=${Diag.c.move} end=${Diag.c.end} cancel=${Diag.c.cancel} moveNotCancelable=${Diag.c.moveNotCancelable} pointercancel=${Diag.c.pointercancel} scroll=${Diag.c.scroll} aimUpdates=${Diag.aim}`,
-    `longest gap between moves ${ms(Diag.maxGap)}, touch handled up to ${ms(Diag.maxDelay)} late`,
-    `frames: average ${avgF.toFixed(1)} ms (${avgF ? Math.round(1000 / avgF) : 0} fps), longest ${ms(Diag.frameMax)}, longest busy stretch ${ms(Diag.stallMax)}`,
-    navigator.userAgent, "", ...Diag.lines].join("\n");
-}
-// Repaint the panel at most twice a second, so the log itself never slows the game.
-function diagRender() { if (!Diag.on || Diag.renderT) return; Diag.renderT = setTimeout(() => { Diag.renderT = 0; if (Diag.on) $("#diagOut").textContent = diagText(); }, 500); }
-function diagToggle(on, keep) {
-  Diag.on = on; $("#diag").hidden = !on; $("#diagBtn").setAttribute("aria-pressed", String(on));
-  try { localStorage.setItem("plumb.touchlog", on ? "1" : "0"); } catch {}
-  clearInterval(Diag.timer); cancelAnimationFrame(Diag.raf);
-  if (on) {
-    if (!keep) diagReset();
-    Diag.lastFrame = 0; stallLast = 0; Diag.raf = requestAnimationFrame(diagFrames); Diag.timer = setInterval(diagStallTick, 100); diagRender();
-  }
-}
-$("#diagBtn").addEventListener("click", () => diagToggle(!Diag.on));
-$("#diagClose").addEventListener("click", () => diagToggle(false));
-$("#diagClear").addEventListener("click", () => { diagReset(); $("#diagOut").textContent = diagText(); });
-$("#diagCopy").addEventListener("click", e => copyText(diagText(), e.currentTarget, "Copy log"));
-// The log stays on across reopens, so it can record the first few seconds after the page loads.
-let diagWasOn = false; try { diagWasOn = localStorage.getItem("plumb.touchlog") === "1"; } catch {}
-if (diagWasOn || location.hash === "#debug") { Diag.t0 = 0; diagToggle(true, true); diagLog(`page opened (log times are ms since the page started)`); }
+try { localStorage.removeItem("plumb.touchlog"); } catch {}   // setting left behind by the temporary touch log
 
 /* ---------- boot ---------- */
 function start(data) {
-  if (data && Object.keys(data).length) diagLog("page reloaded by an app update");
   const active = Players.index.active && Players.load(Players.index.active);
   if (active) activate(active);
   else if (Players.index.list.length) { const p = Players.load(Players.index.list[0].id); if (p) { Players.index.active = p.id; Players.saveIndex(); activate(p); } }
