@@ -643,7 +643,8 @@ function resize() {
 let animUntil = 0, raf = 0;
 function kick(ms) { animUntil = Math.max(animUntil, performance.now() + ms); if (!raf) raf = requestAnimationFrame(loop); }
 function redraw() { if (!raf) raf = requestAnimationFrame(loop); }
-function loop(t) { raf = 0; draw(t); if (t < animUntil) raf = requestAnimationFrame(loop); }
+// draw() may already have asked for the next frame (via kick); only ask once, or the loop doubles every frame.
+function loop(t) { raf = 0; draw(t); if (!raf && t < animUntil) raf = requestAnimationFrame(loop); }
 const easeOut = x => 1 - Math.pow(1 - x, 3);
 const easeBack = x => { const c1 = 1.7, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
 const tierColor = s => T[{ g: "t1", y: "t2", o: "t3", m: "t4" }[tierOf(s)]];
