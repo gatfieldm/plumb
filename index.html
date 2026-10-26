@@ -95,7 +95,7 @@ button,input,textarea{font:inherit;color:inherit}
 .combo{color:var(--pen);font-weight:600}
 
 /* Board */
-.board{-webkit-touch-callout:none;position:relative;width:min(100%,56vh);width:min(100%,56dvh);aspect-ratio:1;max-width:100%;margin-inline:auto;background:var(--board);border:1px solid var(--grid-strong);border-radius:3px;touch-action:none;cursor:crosshair;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+.board{-webkit-touch-callout:none;position:relative;width:min(100%,56vh);width:min(100%,56svh);aspect-ratio:1;max-width:100%;margin-inline:auto;background:var(--board);border:1px solid var(--grid-strong);border-radius:3px;touch-action:none;cursor:crosshair;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
 .board canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .board.locked{cursor:pointer}
 .board.idle{cursor:default}
@@ -236,12 +236,12 @@ button.brand{border:0;background:none;padding:0;cursor:pointer}
 .home{display:flex;flex-direction:column;gap:16px}
 .greet{margin:-2px 0 0;color:var(--ink-2);font-size:15px}
 .greet b{color:var(--ink)}
-.toy{-webkit-touch-callout:none;position:relative;width:min(100%,40dvh,360px);aspect-ratio:1;max-width:100%;margin-inline:auto;background:var(--board);border:1px solid var(--grid-strong);border-radius:3px;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+.toy{-webkit-touch-callout:none;position:relative;width:min(100%,40vh,360px);width:min(100%,40svh,360px);aspect-ratio:1;max-width:100%;margin-inline:auto;background:var(--board);border:1px solid var(--grid-strong);border-radius:3px;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
 .toy.dragging{cursor:grabbing}
 .toy canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .toy-row{display:flex;justify-content:center;align-items:stretch;gap:10px;max-width:100%}
 .toy-row .toy{margin-inline:0}
-.toy-row.slider .toy{width:min(100% - 54px,40dvh,360px)}
+.toy-row.slider .toy{width:min(100% - 54px,40vh,360px);width:min(100% - 54px,40svh,360px)}
 .wslider{width:44px;flex:none;display:flex;flex-direction:column;align-items:center;gap:4px;padding-block:2px;cursor:ns-resize;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;border-radius:8px;transition:opacity .2s}
 .wslider.off{opacity:.45;cursor:default}
 .ws-val{font:600 13px var(--font-mono);color:var(--pen);font-variant-numeric:tabular-nums;min-height:18px}
@@ -631,8 +631,13 @@ function readTokens() { const cs = getComputedStyle(document.documentElement); f
 function resize() {
   const w = board.clientWidth; const dpr = Math.min(window.devicePixelRatio || 1, 2);
   if (!w) return;
-  W = w; cv.width = Math.round(W * dpr); cv.height = Math.round(W * dpr);
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); redraw();
+  const bw = Math.round(w * dpr);
+  if (w === W && cv.width === bw) return;   // nothing changed: don't touch the canvas (setting .width clears it)
+  W = w; cv.width = bw; cv.height = bw;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // Resizing just wiped the canvas, so repaint now rather than on the next frame, or the board shows blank for a frame.
+  if (raf) { cancelAnimationFrame(raf); raf = 0; }
+  loop(performance.now());
 }
 let animUntil = 0, raf = 0;
 function kick(ms) { animUntil = Math.max(animUntil, performance.now() + ms); if (!raf) raf = requestAnimationFrame(loop); }
@@ -1367,9 +1372,14 @@ function toySeed() {
 }
 function toyResize() {
   const w = toyEl.clientWidth; if (!w) return;
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  toy.TW = w; toyCv.width = Math.round(w * dpr); toyCv.height = Math.round(w * dpr);
-  tctx.setTransform(dpr, 0, 0, dpr, 0, 0); toyStart();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2), bw = Math.round(w * dpr);
+  if (w === toy.TW && toyCv.width === bw) return;   // unchanged: leave the canvas alone
+  toy.TW = w; toyCv.width = bw; toyCv.height = bw;
+  tctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // Setting the size cleared the canvas; paint synchronously so there is no blank frame.
+  if (toy.raf) { cancelAnimationFrame(toy.raf); toy.raf = 0; }
+  toy.activeAt = toy.activeAt || performance.now(); toy.last = 0;
+  toyLoop(performance.now());
 }
 function toyStart() { toy.activeAt = performance.now(); if (!toy.raf) { toy.last = 0; toy.raf = requestAnimationFrame(toyLoop); } }
 function toyLoop(t) {
