@@ -1080,7 +1080,7 @@ function countUp(el, target) {
 }
 function shareText(g) {
   const s = g.results.map(r => r.s), total = s.reduce((a, b) => a + b, 0);
-  const head = g.diff === SHARED ? `Plumb #${g.num}  ${total}/500` : `Plumb #${g.num} ${DIFFS[g.diff].label}  ${total}/500`;
+  const head = (g.diff === SHARED ? `Plumb #${g.num}` : `Plumb #${g.num} ${DIFFS[g.diff].label}`) + `\n${total}/500`;
   const am = avg(g.results.map(r => r.d)) * 100, streak = currentStreak(state.profile);
   return `${head}\n${s.map(emojiFor).join("")}\nAvg miss ${am.toFixed(1)}%${streak > 1 ? `\nStreak ${streak}` : ""}`;
 }
