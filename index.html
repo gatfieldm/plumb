@@ -12,7 +12,6 @@
 <style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
 </head>
 <body>
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>Plumb</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -83,6 +82,10 @@ button,input,textarea{font:inherit;color:inherit}
 .pips{display:flex;gap:5px}
 .pip{width:22px;height:22px;border-radius:4px;border:1.5px solid var(--grid-strong)}
 .pip.cur{border-color:var(--ink)}
+button.pip{width:30px;height:30px;padding:0;cursor:pointer;font:700 13px var(--font-body);color:#fff;display:grid;place-items:center}
+button.pip.t-m{color:var(--ink)}
+button.pip[aria-pressed="true"]{outline:2.5px solid var(--ink);outline-offset:2px}
+.review{margin:0;font-size:15px;font-weight:600;color:var(--ink)}
 .pip.t-g{background:var(--t1);border-color:var(--t1)}
 .pip.t-y{background:var(--t2);border-color:var(--t2)}
 .pip.t-o{background:var(--t3);border-color:var(--t3)}
@@ -286,6 +289,11 @@ button.brand{border:0;background:none;padding:0;cursor:pointer}
 .cd-big{font-family:var(--font-display);font-weight:600;font-size:44px;line-height:1;font-variant-numeric:tabular-nums}
 .alldone .actions{justify-content:center}
 .alldone .sharebox{text-align:left;align-self:stretch}
+.extras-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:-6px}
+.card-wrap{display:flex;flex-direction:column;align-items:center;gap:6px}
+.share-card{display:block;width:100%;max-width:340px;aspect-ratio:4/5;border-radius:10px;border:1px solid var(--line);background:var(--paper);box-shadow:0 1px 2px rgba(20,33,61,.08)}
+.share-card:not([src]){visibility:hidden}
+.card-wrap .hint{margin:0;min-height:1em;text-align:center}
 .vtitle{margin:0;font-family:var(--font-display);font-weight:600;font-size:26px;line-height:1.1}
 
 /* Bottom tabs */
@@ -366,11 +374,32 @@ const ENDLESS_LIVES = 3;
 const BULLSEYE = 0.0075;          // inside 0.75% of the board side
 const HALF_CREDIT = 0.08;         // an 8% miss earns 50
 const DIFF_KEYS = ["easy", "normal", "hard"];
+// Endless difficulty comes from the boards, not the clock. Each stage covers rounds up to `to`:
+//   n: [fewest, most] dots;  w: highest weight (0 = plain dots);  bal: no single dot may carry more than this share of the
+//   total weight, so one heavy dot can't give the answer away;  flat: every dot drawn the same size, so only the numbers tell.
+const ENDLESS_EASY = [
+  { to: 4, n: [2, 2] }, { to: 9, n: [3, 3] }, { to: 15, n: [4, 4] }, { to: 24, n: [5, 5] }, { to: Infinity, n: [5, 6] }
+];
+const ENDLESS_NORMAL = [
+  { to: 3, n: [2, 3] }, { to: 8, n: [3, 4] }, { to: 13, n: [4, 5] },
+  { to: 18, n: [4, 5], w: 3 }, { to: 24, n: [5, 6], w: 4, bal: 0.45 }, { to: Infinity, n: [6, 7], w: 5, bal: 0.4 }
+];
+const ENDLESS_HARD = [
+  { to: 5, n: [2, 3], w: 3 }, { to: 10, n: [3, 4], w: 4 }, { to: 15, n: [4, 5], w: 5, bal: 0.45 },
+  { to: 20, n: [5, 6], w: 6, bal: 0.4 }, { to: 24, n: [6, 8], w: 9, bal: 0.35 }, { to: Infinity, n: [6, 8], w: 9, bal: 0.35, flat: true }
+];
+const stageFor = (ramp, r) => ramp.find(s => r <= s.to);
 const DIFFS = {
-  easy:   { label: "Easy",   grid: true,  weighted: false, daily: [2, 2, 3, 3, 4], dots: r => r <= 4 ? 2 : r <= 9 ? 3 : r <= 15 ? 4 : 5, fadeFrom: 20 },
-  normal: { label: "Normal", grid: false, weighted: false, daily: [2, 3, 3, 4, 5], dots: r => r <= 3 ? 2 : r <= 7 ? 3 : r <= 12 ? 4 : 5, fadeFrom: 13 },
-  hard:   { label: "Hard",   grid: false, weighted: true,  daily: [2, 3, 4, 4, 5], dots: r => r <= 2 ? 2 : r <= 5 ? 3 : r <= 9 ? 4 : 5, fadeFrom: 10 }
+  easy:   { label: "Easy",   grid: true,  weighted: false, daily: [2, 2, 3, 3, 4], ramp: ENDLESS_EASY, fadeFrom: 20 },
+  normal: { label: "Normal", grid: false, weighted: false, daily: [2, 3, 3, 4, 5], ramp: ENDLESS_NORMAL, fadeFrom: 13 },
+  hard:   { label: "Hard",   grid: false, weighted: true,  daily: [2, 3, 4, 4, 5], ramp: ENDLESS_HARD, fadeFrom: 10 },
+  // The shared daily everyone plays: four plain boards that get busier, then a weighted finale.
+  plumb:  { label: "Plumb",  grid: false, weighted: false, daily: [2, 3, 4, 5, 4], weightedRounds: [4] }
 };
+const SHARED = "plumb";
+const DAILY_KEYS = [SHARED, ...DIFF_KEYS];       // the shared daily first, then the three extra dailies
+const roundWeighted = (cfg, i) => cfg.weighted || !!(cfg.weightedRounds && cfg.weightedRounds.includes(i));
+const dailyName = d => d === SHARED ? "Plumb" : DIFFS[d].label + " daily";
 const COLORS = ["#D3306A", "#1F6FD1", "#14916A", "#C9780E", "#7A4FD6", "#0D8796"];
 
 /* ---------- utils ---------- */
@@ -397,8 +426,10 @@ const newId = () => "p_" + Date.now().toString(36) + Math.random().toString(36).
 
 /* ---------- geometry + scoring ---------- */
 function centroid(pts) { let x = 0, y = 0, m = 0; for (const p of pts) { const w = p.m || 1; x += p.x * w; y += p.y * w; m += w; } return { x: x / m, y: y / m }; }
+// `weighted` is true (weights 1–4, as in the Hard daily), or { maxW, bal, flat } from an Endless stage.
 function genPoints(n, rng, weighted) {
-  const minSep = (n <= 3 ? 0.18 : 0.14) + (weighted ? 0.03 : 0);
+  const wo = weighted === true ? { maxW: 4 } : weighted || null;
+  const minSep = (n <= 3 ? 0.18 : n <= 5 ? 0.14 : n <= 6 ? 0.125 : 0.11) + (wo ? (n <= 5 ? 0.03 : 0.045) : 0);
   for (let a = 0; a < 400; a++) {
     const pts = []; let tries = 0;
     while (pts.length < n && tries < 500) {
@@ -407,23 +438,27 @@ function genPoints(n, rng, weighted) {
       if (pts.every(q => Math.hypot(p.x - q.x, p.y - q.y) >= minSep)) pts.push(p);
     }
     if (pts.length < n) continue;
-    if (weighted) {
-      for (const p of pts) p.m = 1 + Math.floor(rng() * 4);
-      if (pts.every(p => p.m === pts[0].m)) pts[0].m = (pts[0].m % 4) + 1;
+    if (wo) {
+      for (const p of pts) { p.m = 1 + Math.floor(rng() * wo.maxW); if (wo.flat) p.f = 1; }
+      if (pts.every(p => p.m === pts[0].m)) pts[0].m = (pts[0].m % wo.maxW) + 1;
+      if (wo.bal && n >= 3) { const tot = pts.reduce((a, p) => a + p.m, 0); if (pts.some(p => p.m / tot > wo.bal)) continue; }
     }
     const c = centroid(pts);
     if (c.x < 0.18 || c.x > 0.82 || c.y < 0.18 || c.y > 0.82) continue;
-    if (n >= 3 && pts.some(q => Math.hypot(q.x - c.x, q.y - c.y) < 0.07)) continue;
+    if (n >= 3 && pts.some(q => Math.hypot(q.x - c.x, q.y - c.y) < (n >= 6 ? 0.05 : 0.07))) continue;
     return pts;
   }
-  return Array.from({ length: n }, (_, i) => ({ x: 0.5 + 0.3 * Math.cos(i * 2 * Math.PI / n), y: 0.5 + 0.3 * Math.sin(i * 2 * Math.PI / n), m: weighted ? 1 + (i % 4) : undefined }));
+  return Array.from({ length: n }, (_, i) => ({ x: 0.5 + 0.3 * Math.cos(i * 2 * Math.PI / n), y: 0.5 + 0.3 * Math.sin(i * 2 * Math.PI / n), m: wo ? 1 + (i % 4) : undefined }));
 }
 // 100 only inside the bullseye; everything else tops out at 99.
 function scoreFor(d) { return d < BULLSEYE ? 100 : Math.min(99, Math.round(100 * Math.pow(2, -Math.pow(d / HALF_CREDIT, 2)))); }
 function tierOf(s) { return s >= 90 ? "g" : s >= 75 ? "y" : s >= 60 ? "o" : "m"; }
 function tierLabel(s) { return s === 100 ? "Bullseye" : s >= 90 ? "Dead on" : s >= 75 ? "Close" : s >= 60 ? "Off" : "Miss"; }
 const EMOJI = { g: "🟩", y: "🟨", o: "🟧", m: "⬛" };
-function fadeFor(diff, r) { const f = DIFFS[diff].fadeFrom; return r < f ? 0 : Math.max(700, 2400 - (r - f) * 120); }
+const emojiFor = s => s === 100 ? "🎯" : EMOJI[tierOf(s)];
+// Later Endless rounds hide the dots after a fixed 4.8 s. The clock never shrinks; the boards get harder instead.
+const FADE_MS = 4800;
+function fadeFor(diff, r) { return r < DIFFS[diff].fadeFrom ? 0 : FADE_MS; }
 
 /* ---------- storage (this device) ---------- */
 const LS = {
@@ -478,7 +513,7 @@ const Players = {
   remove(id) {
     this.index.list = this.index.list.filter(x => x.id !== id);
     if (this.index.active === id) this.index.active = this.index.list[0] ? this.index.list[0].id : null;
-    LS.set(LS_PLAYER(id), null); for (const d of DIFF_KEYS) LS.set(LS_PROGRESS(id, d), null);
+    LS.set(LS_PLAYER(id), null); for (const d of DAILY_KEYS) LS.set(LS_PROGRESS(id, d), null);
     this.saveIndex();
   }
 };
@@ -520,7 +555,7 @@ const game = () => state.games[gameKey()];
 function newDaily(d) {
   const date = ymd(), cfg = DIFFS[d];
   const rng = mulberry32(hashStr("centroids:" + date + ":" + d));
-  const rounds = cfg.daily.map(n => ({ pts: genPoints(n, rng, cfg.weighted), fade: 0, shownAt: 0 }));
+  const rounds = cfg.daily.map((n, i) => ({ pts: genPoints(n, rng, roundWeighted(cfg, i)), fade: 0, shownAt: 0 }));
   const g = { mode: "daily", diff: d, date, num: dailyNumber(date), rounds, results: [], idx: 0, phase: "aim", revealAt: 0 };
   const p = state.profile;
   const hist = p && p.daily.history[date] && p.daily.history[date][d];
@@ -542,7 +577,8 @@ function newEndless(d) {
 }
 function pushEndlessRound(g) {
   const r = g.rounds.length + 1, cfg = DIFFS[g.diff];
-  g.rounds.push({ pts: genPoints(cfg.dots(r), Math.random, cfg.weighted), fade: fadeFor(g.diff, r), shownAt: performance.now() });
+  const st = stageFor(cfg.ramp, r), n = st.n[0] + Math.floor(Math.random() * (st.n[1] - st.n[0] + 1));
+  g.rounds.push({ pts: genPoints(n, Math.random, st.w ? { maxW: st.w, bal: st.bal, flat: st.flat } : false), fade: fadeFor(g.diff, r), shownAt: performance.now(), stage: cfg.ramp.indexOf(st) });
   g.idx = g.rounds.length - 1; g.phase = "aim";
 }
 function ensureGame() {
@@ -674,10 +710,11 @@ function drawCoM(x, y, r, scale = 1) {
   ctx.strokeStyle = T.ink; ctx.lineWidth = Math.max(1.5, R * 0.18); ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.stroke();
   ctx.restore();
 }
-function dotRadius(base, m) { return m ? base * 0.85 * Math.sqrt(m) : base; }   // area proportional to weight
-function drawDot(x, y, base, m, alpha = 1, scale = 1) {
+// Dot area is proportional to weight, except on "numbers only" rounds where every dot is the same size.
+function dotRadius(base, m, flat) { return !m ? base : flat ? base * 1.35 : base * 0.85 * Math.sqrt(m); }
+function drawDot(x, y, base, m, alpha = 1, scale = 1, flat = false) {
   if (alpha <= 0 || scale <= 0) return;
-  const r = dotRadius(base, m) * scale;
+  const r = dotRadius(base, m, flat) * scale;
   ctx.globalAlpha = alpha;
   ctx.fillStyle = T.board; ctx.beginPath(); ctx.arc(x, y, r + 2.5, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = T.ink; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
@@ -727,10 +764,10 @@ function draw(now) {
   }
   const g = game(); if (!g) { drawBoard(false); return; }
   const cfg = DIFFS[g.diff];
-  const dotBase = cfg.weighted ? Math.max(8, W * 0.021) : dotR;
   drawBoard(cfg.grid);
   if (g.mode === "daily" && g.phase === "done") { drawDailySummary(g); return; }
   const r = g.rounds[g.idx], res = g.results[g.idx]; if (!r) return;
+  const dotBase = r.pts.some(p => p.m) ? Math.max(8, W * 0.021) : dotR;
   const c = centroid(r.pts);
 
   if (g.phase === "aim") {
@@ -742,7 +779,7 @@ function draw(now) {
       if (left > -400) kick(60);
     }
     const since = reduceMotion() ? 9999 : now - r.shownAt;
-    r.pts.forEach((p, i) => drawDot(X(p.x), X(p.y), dotBase, p.m, alpha, easeBack(clamp((since - i * 60) / 240))));
+    r.pts.forEach((p, i) => drawDot(X(p.x), X(p.y), dotBase, p.m, alpha, easeBack(clamp((since - i * 60) / 240)), !!p.f));
     if (since < r.pts.length * 60 + 260) kick(60);
     if (state.aim && state.finger) {
       ctx.strokeStyle = T.pen; ctx.globalAlpha = 0.45; ctx.lineWidth = 1.5; ctx.setLineDash([2, 3]);
@@ -757,10 +794,10 @@ function draw(now) {
   ctx.strokeStyle = T["ink-3"]; ctx.setLineDash([]);
   r.pts.forEach((p, i) => {
     const k = easeOut(clamp((t - i * 90) / 360)); if (k <= 0) return;
-    ctx.lineWidth = p.m ? 0.75 + p.m * 0.5 : 1.25;
+    ctx.lineWidth = p.m ? 0.75 + Math.min(p.m, 6) * 0.45 : 1.25;
     ctx.beginPath(); ctx.moveTo(X(p.x), X(p.y)); ctx.lineTo(X(p.x + (c.x - p.x) * k), X(p.y + (c.y - p.y) * k)); ctx.stroke();
   });
-  for (const p of r.pts) drawDot(X(p.x), X(p.y), dotBase, p.m);
+  for (const p of r.pts) drawDot(X(p.x), X(p.y), dotBase, p.m, 1, 1, !!p.f);
   if (res && res.guess) {
     const miss = easeOut(clamp((t - S - 380) / 320)), col = tierColor(res.s);
     if (res.s === 100) {
@@ -780,19 +817,41 @@ function draw(now) {
     }
   } else drawCoM(X(c.x), X(c.y), comR);
 }
+// After a daily, the board replays one round at a time in its finished state.
+const worstRound = g => g.results.reduce((w, r, i) => r && r.s < g.results[w].s ? i : w, 0);
 function drawDailySummary(g) {
-  const X = v => v * W;
-  ctx.textBaseline = "middle";
-  g.results.forEach((res, i) => {
-    const c = res.c || centroid(g.rounds[i].pts), col = tierColor(res.s);
-    if (res.guess) {
-      ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
-      ctx.beginPath(); ctx.moveTo(X(res.guess.x), X(res.guess.y)); ctx.lineTo(X(c.x), X(c.y)); ctx.stroke(); ctx.setLineDash([]);
-      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(X(res.guess.x), X(res.guess.y), 4, 0, Math.PI * 2); ctx.fill();
-    }
-    drawCoM(X(c.x), X(c.y), Math.max(7, W * 0.019));
-    ctx.font = MONO; ctx.fillStyle = T["ink-2"]; ctx.fillText(String(i + 1), X(c.x) + 13, X(c.y) - 12);
-  });
+  const X = v => v * W, i = g.review ?? (g.review = worstRound(g));
+  const r = g.rounds[i], res = g.results[i]; if (!r || !res) return;
+  const c = res.c || centroid(r.pts), weighted = r.pts.some(p => p.m);
+  const dotBase = weighted ? Math.max(8, W * 0.021) : Math.max(5, W * 0.016), comR = Math.max(9, W * 0.026), col = tierColor(res.s);
+  ctx.strokeStyle = T["ink-3"];
+  for (const p of r.pts) { ctx.lineWidth = p.m ? 0.75 + p.m * 0.5 : 1.25; ctx.beginPath(); ctx.moveTo(X(p.x), X(p.y)); ctx.lineTo(X(c.x), X(c.y)); ctx.stroke(); }
+  for (const p of r.pts) drawDot(X(p.x), X(p.y), dotBase, p.m);
+  if (res.guess) {
+    ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.moveTo(X(res.guess.x), X(res.guess.y)); ctx.lineTo(X(c.x), X(c.y)); ctx.stroke(); ctx.setLineDash([]);
+  }
+  drawCoM(X(c.x), X(c.y), comR);
+  if (res.guess) {
+    drawGuess(X(res.guess.x), X(res.guess.y), col);
+    const mx = (res.guess.x + c.x) / 2, my = (res.guess.y + c.y) / 2, dx = c.x - res.guess.x, dy = c.y - res.guess.y, L = Math.hypot(dx, dy) || 1;
+    label((res.d * 100).toFixed(2) + "%", X(mx) - (dy / L) * 22, X(my) + (dx / L) * 22, col);
+  }
+}
+function setReview(i) {
+  const g = game(); if (!g || g.mode !== "daily" || g.phase !== "done") return;
+  g.review = (i + 5) % 5;
+  document.querySelectorAll("#hud .pip[data-r]").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.r === g.review)));
+  const el = $("#review"); if (el) el.textContent = reviewLine(g);
+  redraw();
+}
+function reviewLine(g) {
+  const i = g.review ?? worstRound(g), r = g.rounds[i], res = g.results[i]; if (!r || !res) return "";
+  const n = r.pts.length, w = r.pts.some(p => p.m) ? " weighted" : "";
+  const dir = res.guess ? leanWord(res.guess.x - res.c.x, res.guess.y - res.c.y) : "";
+  const miss = res.s === 100 ? "Bullseye." : `Missed ${dir} by ${(res.d * 100).toFixed(1)}%.`;
+  const worst = i === worstRound(g) && g.results.some(x => x.s !== res.s) ? " Your lowest round." : "";
+  return `Round ${i + 1}: ${n}${w} dots, ${res.s} points. ${miss}${worst}`;
 }
 
 /* ---------- input ---------- */
@@ -817,6 +876,7 @@ board.addEventListener("pointerdown", e => {
   const g = game(); if (!g || !state.profile) return;
   setTouch(e.pointerType !== "mouse");
   if (g.phase === "reveal") { tapReveal(); return; }
+  if (g.phase === "done" && g.mode === "daily") { setReview(g.review + 1); return; }
   if (g.phase !== "aim") return;
   state.down = true; state.popAt = performance.now(); try { board.setPointerCapture(e.pointerId); } catch {}
   if (state.touch) { state.aim = liftedAim(e); state.finger = toNorm(e); syncLock(); }
@@ -859,6 +919,7 @@ board.addEventListener("touchstart", e => {
     state.revealTouch = { x: t.clientX, y: t.clientY, moved: false, last: { clientX: t.clientX, clientY: t.clientY }, timer: 0 };
     return;
   }
+  if (g.phase === "done" && g.mode === "daily") { setReview(g.review + 1); return; }
   if (g.phase !== "aim") return;
   touchId = t.identifier; state.down = true; state.popAt = performance.now();
   touchAim(t); syncLock(); kick(160);
@@ -904,6 +965,8 @@ board.addEventListener("touchcancel", touchDone, NOSCROLL);
 board.addEventListener("pointerleave", e => { if (!state.down && e.pointerType === "mouse") { state.aim = null; redraw(); } });
 board.addEventListener("focus", () => { const g = game(); if (g && g.phase === "aim" && !state.aim) { state.aim = { x: 0.5, y: 0.5 }; redraw(); } });
 board.addEventListener("keydown", e => {
+  const g0 = game();
+  if (g0 && g0.mode === "daily" && g0.phase === "done" && (e.key === "ArrowLeft" || e.key === "ArrowRight")) { e.preventDefault(); setReview(g0.review + (e.key === "ArrowLeft" ? -1 : 1)); return; }
   const g = game(); if (!g || g.phase !== "aim") return;
   const step = e.shiftKey ? 0.05 : 0.005, a = state.aim || { x: 0.5, y: 0.5 };
   const mv = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
@@ -947,12 +1010,15 @@ function renderPlay() {
 function renderHud(g, hud) {
   const dl = DIFFS[g.diff].label;
   if (g.mode === "daily") {
+    if (g.review == null && g.phase === "done") g.review = worstRound(g);
     const pips = [0, 1, 2, 3, 4].map(i => {
       const r = g.results[i];
+      if (r && g.phase === "done") return `<button type="button" class="pip t-${tierOf(r.s)}" data-r="${i}" aria-pressed="${i === g.review}" aria-label="Show round ${i + 1}, ${r.s} points">${i + 1}</button>`;
       if (r && (g.phase !== "aim" || i < g.idx)) return `<span class="pip t-${tierOf(r.s)}" title="Round ${i + 1}: ${r.s}"></span>`;
       return `<span class="pip${i === g.idx && g.phase !== "done" ? " cur" : ""}"></span>`;
     }).join("");
-    hud.innerHTML = `<div class="hud-title">Daily #${g.num}<small>${dl}, ${esc(prettyDate(g.date))}</small></div><div class="pips" aria-label="Round results">${pips}</div>`;
+    hud.innerHTML = `<div class="hud-title">${g.diff === SHARED ? "Plumb" : "Daily"} #${g.num}<small>${g.diff === SHARED ? "" : dl + ", "}${esc(prettyDate(g.date))}</small></div><div class="pips" aria-label="Round results">${pips}</div>`;
+    hud.querySelectorAll(".pip[data-r]").forEach(b => b.addEventListener("click", () => setReview(+b.dataset.r)));
   } else {
     const res = g.results[g.idx], draining = g.phase === "reveal" && res && res.lifeLost;
     const lives = Array.from({ length: ENDLESS_LIVES }, (_, i) => `<span class="life${i >= g.lives ? " lost" : ""}${draining && i === g.lives ? " drain" : ""}"></span>`).join("");
@@ -965,12 +1031,18 @@ function renderReadout(g, ro) {
   clearInterval(countTimer);
   if (g.phase === "aim") {
     const r = g.rounds[g.idx], n = r.pts.length, cfg = DIFFS[g.diff];
-    const kicker = g.mode === "daily" ? `Round ${g.idx + 1} of 5` : `Round ${g.idx + 1}, ${n} dots`;
-    const big = cfg.weighted ? `Find the center of mass of <b>${n}</b> weighted dots` : `Find the center of <b>${n}</b> dots`;
+    const wr = r.pts.some(p => p.m), finale = g.diff === SHARED && wr;
+    const kicker = g.mode === "daily" ? (finale ? `Round ${g.idx + 1} of 5, the weighted finale` : `Round ${g.idx + 1} of 5`) : `Round ${g.idx + 1}, ${n} dots`;
+    const big = wr ? `Find the center of mass of <b>${n}</b> weighted dots` : `Find the center of <b>${n}</b> dots`;
     let sub = state.touch ? "Drag to place your marker, then tap Lock in." : "Press, drag to fine-tune, release to lock in.";
-    if (cfg.weighted && (g.idx === 0 || r.fade)) sub = "Each number is that dot's weight, and bigger dots pull harder. " + sub;
-    else if (g.mode === "daily" && g.idx === 0) sub = `Everyone on ${cfg.label} gets the same five boards today. ` + sub;
-    if (g.mode === "endless" && r.fade) sub = `The dots vanish after ${(r.fade / 1000).toFixed(1)}s. Remember where they were.`;
+    if (wr && (g.idx === 0 || r.fade || finale)) sub = "Each number is that dot's weight, and bigger dots pull harder. " + sub;
+    else if (g.mode === "daily" && g.idx === 0) sub = (g.diff === SHARED ? "Everyone gets the same five boards today. " : `Everyone on ${cfg.label} gets the same five boards today. `) + sub;
+    const prev = g.mode === "endless" && g.idx > 0 ? g.rounds[g.idx - 1] : null, newStage = prev && prev.stage !== r.stage;
+    if (g.mode === "endless" && newStage && r.pts.some(p => p.f) && !prev.pts.some(p => p.f)) sub = "From here every dot is the same size. Only the numbers tell you the weights.";
+    else if (g.mode === "endless" && newStage && wr && !prev.pts.some(p => p.m)) sub = "Weights join in. Each number is that dot's weight, and bigger dots pull harder.";
+    else if (g.mode === "endless" && newStage && r.pts.some(p => p.m >= 5) && !prev.pts.some(p => p.m >= 5)) sub = `Heavier weights from here, up to ${stageFor(DIFFS[g.diff].ramp, g.idx + 1).w}, and no single dot dominates.`;
+    else if (g.mode === "endless" && r.fade && !(prev && prev.fade)) sub = `From here the dots vanish after ${(r.fade / 1000).toFixed(1)} seconds. Remember where they were.`;
+    else if (g.mode === "endless" && r.fade) sub = `The dots vanish after ${(r.fade / 1000).toFixed(1)} seconds.`;
     else if (g.mode === "endless" && g.idx === 0) sub = "Scores under 60 cost a life. Scores of 85 or more build your multiplier.";
     ro.innerHTML = `<div class="prompt"><span class="kicker">${kicker}</span><p class="big">${big}</p><p class="sub">${sub}</p></div>`
       + (state.touch ? `<button class="btn primary block${state.aim ? "" : " wait"}" id="lockBtn" aria-disabled="${!state.aim}">Lock in</button>` : "");
@@ -1006,19 +1078,30 @@ function countUp(el, target) {
   const step = t => { if (skip) return; const k = clamp((t - t0) / 560); el.textContent = "+" + Math.round(target * easeOut(k)); if (k < 1 && el.isConnected) requestAnimationFrame(step); };
   requestAnimationFrame(step);
 }
+function shareText(g) {
+  const s = g.results.map(r => r.s), total = s.reduce((a, b) => a + b, 0);
+  const head = g.diff === SHARED ? `Plumb #${g.num}  ${total}/500` : `Plumb #${g.num} ${DIFFS[g.diff].label}  ${total}/500`;
+  const am = avg(g.results.map(r => r.d)) * 100, streak = currentStreak(state.profile);
+  return `${head}\n${s.map(emojiFor).join("")}\nAvg miss ${am.toFixed(1)}%${streak > 1 ? `\nStreak ${streak}` : ""}`;
+}
 function renderDailyDone(g, ro) {
   const s = g.results.map(r => r.s), total = s.reduce((a, b) => a + b, 0), p = state.profile, streak = currentStreak(p);
-  const others = DIFF_KEYS.filter(d => d !== g.diff && !(p.daily.history[g.date] || {})[d]);
-  const rank = deviceRank(g.diff);
+  const others = DAILY_KEYS.filter(d => d !== g.diff && !(p.daily.history[g.date] || {})[d]);
+  const rank = deviceRank(g.diff), grp = grouping(g.results);
+  const nextLabel = d => d === SHARED ? "Play today's Plumb" : `Play ${DIFFS[d].label} daily`;
   ro.innerHTML = `<div class="summary">
-    <div class="sum-row"><div><span class="kicker">${DIFFS[g.diff].label} daily #${g.num}, ${esc(prettyDate(g.date))}</span><div class="total">${total}<small>/500</small></div></div><div class="tiles">${s.map(x => `<span class="tile t-${tierOf(x)}">${x}</span>`).join("")}</div></div>
-    <div class="facts"><span>Avg miss <b>${(avg(g.results.map(r => r.d)) * 100).toFixed(2)}%</b></span><span>Streak <b>${streak}</b> day${streak === 1 ? "" : "s"}</span>${rank ? `<span>On this device <b>#${rank.pos}</b> of ${rank.of}</span>` : ""}</div>
-    <div class="actions">${others.length ? `<button class="btn primary" id="tryOther" data-d="${others[0]}">Play ${DIFFS[others[0]].label} daily</button>` : ""}<button class="btn${others.length ? "" : " primary"}" id="playEndless">Play Endless</button><button class="btn" id="copyBtn">Copy result</button></div>
+    <div class="sum-row"><div><span class="kicker">${g.diff === SHARED ? "Plumb" : DIFFS[g.diff].label + " daily"} #${g.num}, ${esc(prettyDate(g.date))}</span><div class="total">${total}<small>/500</small></div></div><div class="tiles">${s.map(x => `<span class="tile t-${tierOf(x)}">${x}</span>`).join("")}</div></div>
+    <p class="review" id="review" aria-live="polite">${esc(reviewLine(g))}</p><p class="hint" style="margin:-6px 0 0">Tap the board or a round square to step through your rounds.</p>
+    <div class="facts"><span>Avg miss <b>${(avg(g.results.map(r => r.d)) * 100).toFixed(2)}%</b></span><span>${esc(leanSentence(grp))}</span><span>Streak <b>${streak}</b> day${streak === 1 ? "" : "s"}</span>${rank ? `<span>On this device <b>#${rank.pos}</b> of ${rank.of}</span>` : ""}</div>
+    <div class="card-wrap"><img class="share-card" id="shareImg" alt="Your shot grouping for ${esc(dailyName(g.diff))} #${g.num}: five misses plotted around the true center, ${total} of 500."><p class="hint" id="shareHint"></p></div>
+    <div class="actions"><button class="btn primary" id="shareBtn">Share</button><button class="btn" id="copyBtn">Copy text</button><button class="btn" id="saveBtn">Save image</button></div>
     <pre class="sharebox" id="shareBox" hidden></pre>
+    <div class="actions">${others.length ? `<button class="btn" id="tryOther" data-d="${others[0]}">${nextLabel(others[0])}</button>` : ""}<button class="btn" id="playEndless">Play Endless</button></div>
     <p class="next">Next boards in <span id="cd">--:--:--</span> (your local midnight)</p></div>`;
   const to = $("#tryOther"); if (to) to.addEventListener("click", () => { state.playDiff = to.dataset.d; setView("daily"); });
-  $("#playEndless").addEventListener("click", () => { state.playDiff = g.diff; setView("endless"); });
-  $("#copyBtn").addEventListener("click", e => copyText(`Plumb #${g.num} ${DIFFS[g.diff].label}  ${total}/500\n${s.map(x => EMOJI[tierOf(x)]).join("")}\nAvg miss ${(avg(g.results.map(r => r.d)) * 100).toFixed(2)}%`, e.currentTarget));
+  $("#playEndless").addEventListener("click", () => { state.playDiff = g.diff === SHARED ? defaultDiff() : g.diff; setView("endless"); });
+  $("#copyBtn").addEventListener("click", e => copyText(shareText(g), e.currentTarget, "Copy text"));
+  wireShare(g);
   const tick = () => {
     const now = new Date(), mid = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
     const sec = Math.max(0, Math.floor((mid - now) / 1000)), el = $("#cd");
@@ -1027,6 +1110,133 @@ function renderDailyDone(g, ro) {
     if (ymd() !== g.date) { clearInterval(countTimer); setView(state.view); }
   };
   tick(); countTimer = setInterval(tick, 1000);
+}
+
+/* ---------- share card: the day's five misses as a shot grouping ---------- */
+// Only miss vectors (guess minus true center) go on the card, so it never reveals where the dots were.
+const missAt = score => HALF_CREDIT * Math.sqrt(Math.log2(100 / score));   // miss size where a score boundary falls
+const RING_D = [missAt(59.5), missAt(74.5), missAt(89.5)];                  // edges of Off, Close and Dead on
+const CARD_MAX = 0.09;                                                       // target edge = a 9% miss
+function grouping(results) {
+  const v = results.filter(r => r && r.guess && r.c).map(r => ({ x: r.guess.x - r.c.x, y: r.guess.y - r.c.y, s: r.s }));
+  const mx = avg(v.map(q => q.x)), my = avg(v.map(q => q.y));
+  return { v, mx, my, bias: Math.hypot(mx, my), spread: avg(v.map(q => Math.hypot(q.x - mx, q.y - my))) };
+}
+function leanWord(dx, dy) {
+  const a = Math.atan2(-dy, dx) * 180 / Math.PI, i = ((Math.round(a / 45) % 8) + 8) % 8;
+  return ["right", "up and right", "up", "up and left", "left", "down and left", "down", "down and right"][i];
+}
+function leanSentence(g) {
+  if (!g.v.length) return "";
+  // A lean only counts when the group's offset is bigger than its own scatter.
+  return g.bias < 0.005 || g.bias < 0.6 * g.spread ? "No clear lean" : `You leaned ${leanWord(g.mx, g.my)} by ${(g.bias * 100).toFixed(1)}%`;
+}
+const CARD = { paper: "#E9EEF2", board: "#F8FAFB", grid: "#E0E7EE", gridS: "#BFCAD6", ink: "#14213D", ink2: "#46546E", ink3: "#7A879D", pen: "#D3306A", g: "#169A6B", y: "#D9A915", o: "#E0702A", m: "#A9B4C2" };
+async function drawShareCard(g) {
+  try { await Promise.all(['600 64px "Jost"', '400 30px "Atkinson Hyperlegible"', '700 30px "Atkinson Hyperlegible"'].map(f => document.fonts.load(f))); } catch {}
+  const Wc = 1080, Hc = 1350, P = 72, cv2 = document.createElement("canvas"); cv2.width = Wc; cv2.height = Hc;
+  const c = cv2.getContext("2d"), DISP = '"Jost", "Futura", "Avenir Next", sans-serif', BODY = '"Atkinson Hyperlegible", system-ui, sans-serif';
+  const s = g.results.map(r => r.s), total = s.reduce((a, b) => a + b, 0), grp = grouping(g.results), streak = currentStreak(state.profile);
+  c.fillStyle = CARD.paper; c.fillRect(0, 0, Wc, Hc);
+  // Header: plumb-bob mark, wordmark, puzzle number and date
+  c.save(); c.translate(P, 70); c.scale(2.6, 2.6); c.fillStyle = CARD.ink; c.strokeStyle = CARD.ink; c.lineWidth = 1.8;
+  c.beginPath(); c.moveTo(10, 0); c.lineTo(10, 8); c.stroke(); c.beginPath(); c.moveTo(6, 8.5); c.lineTo(14, 8.5); c.lineTo(14, 11); c.lineTo(10, 23); c.lineTo(6, 11); c.closePath(); c.fill(); c.restore();
+  c.fillStyle = CARD.ink; c.font = `600 72px ${DISP}`; c.textBaseline = "alphabetic"; c.fillText("Plumb", P + 66, 128);
+  c.textAlign = "right"; c.font = `600 56px ${DISP}`; c.fillStyle = CARD.ink2; c.fillText("#" + g.num, Wc - P, 112);
+  c.font = `400 28px ${BODY}`; c.fillStyle = CARD.ink3; c.fillText((g.diff === SHARED ? "" : DIFFS[g.diff].label + " daily, ") + prettyDate(g.date), Wc - P, 150);
+  c.textAlign = "left";
+  // Target
+  // Zoom so the widest shot sits near the rim: tight groups fill the card, wild ones still fit.
+  const widest = Math.max(0, ...grp.v.map(q => Math.hypot(q.x, q.y))), VIEW = clamp(widest / 0.8, 0.035, CARD_MAX);
+  const top = 180, side = Wc - 2 * P, cx = Wc / 2, cy = top + side / 2, R = side / 2 - 44, k = R / VIEW;
+  c.fillStyle = CARD.board; c.strokeStyle = CARD.gridS; c.lineWidth = 2;
+  c.beginPath(); c.roundRect ? c.roundRect(P, top, side, side, 18) : c.rect(P, top, side, side); c.fill(); c.stroke();
+  c.lineWidth = 1.5; c.strokeStyle = CARD.grid;
+  for (let i = 1; i < 12; i++) { const v = P + i * side / 12; c.beginPath(); c.moveTo(v, top); c.lineTo(v, top + side); c.moveTo(P, top + i * side / 12); c.lineTo(P + side, top + i * side / 12); c.stroke(); }
+  const bands = [[CARD_MAX * 2, CARD.m], [RING_D[0], CARD.o], [RING_D[1], CARD.y], [RING_D[2], CARD.g]];
+  c.save(); c.beginPath(); c.rect(P, top, side, side); c.clip();
+  for (const [d, col] of bands) { c.beginPath(); c.arc(cx, cy, d * k, 0, Math.PI * 2); c.fillStyle = col; c.globalAlpha = 0.07; c.fill(); c.globalAlpha = 1; c.strokeStyle = col; c.lineWidth = 2.5; c.stroke(); }
+  c.font = `600 22px ${BODY}`; c.fillStyle = CARD.ink3; c.textAlign = "center";
+  c.strokeStyle = CARD.g; c.lineWidth = 1.5; c.setLineDash([3, 5]); c.beginPath(); c.arc(cx, cy, BULLSEYE * k, 0, Math.PI * 2); c.stroke(); c.setLineDash([]);
+  [["60", RING_D[0]], ["75", RING_D[1]], ["90", RING_D[2]]].forEach(([t, d]) => { const a = -Math.PI / 4, rr = d * k; if (rr * 0.71 + 30 < side / 2) c.fillText(t, cx + Math.cos(a) * rr + 16, cy + Math.sin(a) * rr - 8); });
+  c.restore();
+  // True center, drawn as the game's center-of-mass symbol
+  const Rc = 15; c.save(); c.translate(cx, cy); c.fillStyle = CARD.board; c.beginPath(); c.arc(0, 0, Rc, 0, Math.PI * 2); c.fill(); c.fillStyle = CARD.ink;
+  c.beginPath(); c.moveTo(0, 0); c.arc(0, 0, Rc, -Math.PI / 2, 0); c.closePath(); c.fill(); c.beginPath(); c.moveTo(0, 0); c.arc(0, 0, Rc, Math.PI / 2, Math.PI); c.closePath(); c.fill();
+  c.strokeStyle = CARD.ink; c.lineWidth = 3; c.beginPath(); c.arc(0, 0, Rc, 0, Math.PI * 2); c.stroke(); c.restore();
+  // Shots: dashed miss lines, then numbered dots (misses past the edge sit on the rim)
+  const shots = grp.v.map((q, i) => { const L = Math.hypot(q.x, q.y), f = L > VIEW ? VIEW / L : 1; return { x: cx + q.x * f * k, y: cy + q.y * f * k, s: q.s, i, out: f < 1 }; });
+  c.setLineDash([10, 8]); c.lineWidth = 3;
+  for (const p of shots) { c.strokeStyle = CARD[tierOf(p.s)]; c.globalAlpha = 0.55; c.beginPath(); c.moveTo(cx, cy); c.lineTo(p.x, p.y); c.stroke(); }
+  c.setLineDash([]); c.globalAlpha = 1;
+  c.save(); c.beginPath(); c.rect(P, top, side, side); c.clip();
+  if (shots.length > 1 && leanSentence(grp) !== "No clear lean") {   // group center and scatter, so the lean shows at a glance
+    const gx = cx + clamp(grp.mx, -VIEW, VIEW) * k, gy = cy + clamp(grp.my, -VIEW, VIEW) * k;
+    c.strokeStyle = CARD.pen; c.lineWidth = 3; c.setLineDash([6, 6]); c.beginPath(); c.arc(gx, gy, clamp(grp.spread * k, 22, R * 0.4), 0, Math.PI * 2); c.stroke(); c.setLineDash([]);
+    c.beginPath(); c.moveTo(gx - 12, gy); c.lineTo(gx + 12, gy); c.moveTo(gx, gy - 12); c.lineTo(gx, gy + 12); c.stroke();
+  }
+  c.restore();
+  c.font = `700 24px ${BODY}`; c.textBaseline = "middle";
+  for (const p of shots) {
+    const col = CARD[tierOf(p.s)];
+    c.fillStyle = CARD.board; c.beginPath(); c.arc(p.x, p.y, 24, 0, Math.PI * 2); c.fill();
+    c.fillStyle = col; c.beginPath(); c.arc(p.x, p.y, 20, 0, Math.PI * 2); c.fill();
+    if (p.s === 100) { c.strokeStyle = CARD.g; c.lineWidth = 3; c.beginPath(); c.arc(p.x, p.y, 33, 0, Math.PI * 2); c.stroke(); }
+    if (p.out) { c.strokeStyle = CARD.ink; c.lineWidth = 2; c.setLineDash([4, 4]); c.beginPath(); c.arc(p.x, p.y, 31, 0, Math.PI * 2); c.stroke(); c.setLineDash([]); }
+    c.fillStyle = p.s < 60 ? CARD.ink : "#fff"; c.fillText(String(p.i + 1), p.x, p.y + 1);
+  }
+  // Footer: total, round tiles, one plain sentence
+  const fy = top + side;
+  c.textAlign = "left"; c.textBaseline = "alphabetic"; c.fillStyle = CARD.ink; c.font = `600 124px ${DISP}`; c.fillText(String(total), P - 4, fy + 140);
+  const tw = c.measureText(String(total)).width; c.font = `600 48px ${DISP}`; c.fillStyle = CARD.ink3; c.fillText("/500", P + tw + 4, fy + 140);
+  const ts = 68, gap = 10, tx0 = Wc - P - 5 * ts - 4 * gap;
+  s.forEach((x, i) => {
+    const t = tierOf(x), X0 = tx0 + i * (ts + gap), Y0 = fy + 52;
+    c.fillStyle = CARD[t]; c.beginPath(); c.roundRect ? c.roundRect(X0, Y0, ts, ts, 8) : c.rect(X0, Y0, ts, ts); c.fill();
+    c.fillStyle = t === "m" ? CARD.ink : "#fff"; c.font = `700 28px ${BODY}`; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(String(x), X0 + ts / 2, Y0 + ts / 2 + 1);
+  });
+  c.textAlign = "left"; c.textBaseline = "alphabetic"; c.font = `400 30px ${BODY}`; c.fillStyle = CARD.ink2;
+  const am = (avg(g.results.map(r => r.d)) * 100).toFixed(1);
+  c.fillText(`Average miss ${am}%. ${leanSentence(grp)}.`, P, fy + 206);
+  if (streak > 1) { c.textAlign = "right"; c.fillStyle = CARD.ink3; c.fillText(`${streak}-day streak`, Wc - P, fy + 206); }
+  return cv2;
+}
+function wireShare(g) {
+  const img = $("#shareImg"), hint = $("#shareHint"), btn = $("#shareBtn"), save = $("#saveBtn");
+  let blob = null;
+  const name = `plumb-${g.num}${g.diff === SHARED ? "" : "-" + g.diff}.png`;
+  drawShareCard(g).then(cv2 => {
+    if (!img.isConnected) return;
+    img.src = cv2.toDataURL("image/png");
+    cv2.toBlob(b => { blob = b; }, "image/png");
+    if (state.touch) hint.textContent = "Press and hold the card to save it.";
+  });
+  btn.addEventListener("click", async () => {
+    const text = shareText(g);
+    try {
+      if (blob && navigator.canShare) {
+        const file = new File([blob], name, { type: "image/png" });
+        if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text }); return; }
+      }
+      if (navigator.share) { await navigator.share({ text }); return; }
+    } catch (err) { if (err && err.name === "AbortError") return; }
+    copyText(text, btn, "Share");
+    hint.textContent = "Sharing isn't available here, so the result text was copied instead.";
+  });
+  // Saving goes through the viewer's download prompt; the button stays hidden where that isn't available.
+  save.hidden = true;
+  let dl = null;
+  try { claude.use("downloads").then(d => { dl = d; if (d && save.isConnected) save.hidden = false; }); } catch {}
+  save.addEventListener("click", async () => {
+    if (!blob || !dl) return;
+    try { await dl.save({ filename: name, data: blob }); hint.textContent = ""; }
+    catch (err) {
+      const code = err && err.code;
+      if (code === "declined") return;
+      if (code === "rate_limited") { hint.textContent = "A save is already waiting for you. Try again in a moment."; return; }
+      save.hidden = true; hint.textContent = "Saving isn't available here. Press and hold, or right-click, the card to save it.";
+    }
+  });
 }
 function renderEndlessDone(g, ro) {
   const rounds = g.results.length, e = state.profile.endless[g.diff];
@@ -1108,7 +1318,7 @@ function deviceRank(d) {
 /* ---------- stats ---------- */
 function dailyEntries(p, f) {
   const out = [];
-  for (const [date, day] of Object.entries(p.daily.history)) for (const d of DIFF_KEYS) if (day[d] && (f === "all" || f === d)) out.push({ date, diff: d, ...day[d] });
+  for (const [date, day] of Object.entries(p.daily.history)) for (const d of DAILY_KEYS) if (day[d] && (f === "all" || f === d)) out.push({ date, diff: d, ...day[d] });
   return out.sort((a, b) => a.date < b.date ? -1 : 1);
 }
 function renderStats() {
@@ -1133,7 +1343,7 @@ function renderStats() {
   if (!p.totals.rounds) {
     html += `<div class="empty"><b>No games yet.</b> Today's daily is five rounds and takes about a minute. Your streak, accuracy and history build up here.<button class="btn primary" id="goDaily">Play today's daily</button></div>`;
   } else {
-    html += `<div class="phead"><span class="kicker">Charts for</span><div class="seg small" id="statsDiff">${["all", ...DIFF_KEYS].map(k => `<button data-f="${k}" aria-pressed="${k === f}">${k === "all" ? "All" : DIFFS[k].label}</button>`).join("")}</div></div>`;
+    html += `<div class="phead"><span class="kicker">Charts for</span><div class="seg small" id="statsDiff">${["all", ...DAILY_KEYS].map(k => `<button data-f="${k}" aria-pressed="${k === f}">${k === "all" ? "All" : DIFFS[k].label}</button>`).join("")}</div></div>`;
     html += `<div class="two">${panelDistribution(p, entries)}${panelByDots(entries)}</div>`;
     html += panelCalendar(p);
     html += panelTrend(p, f);
@@ -1148,8 +1358,8 @@ function renderStats() {
   el.querySelectorAll(".lb-row[data-id]").forEach(r => { const m = Players.index.list.find(x => x.id === r.dataset.id); if (m) { r.querySelector(".nm").textContent = m.name + (m.id === p.id ? " (you)" : ""); r.querySelector(".av").textContent = m.name.trim()[0] || "?"; } });
 }
 function panelByDifficulty(p) {
-  const rows = DIFF_KEYS.map(d => {
-    const es = dailyEntries(p, d), e = p.endless[d];
+  const rows = DAILY_KEYS.map(d => {
+    const es = dailyEntries(p, d), e = p.endless[d] || {};
     return `<tr><td>${DIFFS[d].label}</td><td>${es.length}</td><td>${es.length ? Math.round(avg(es.map(x => x.score))) : "–"}</td><td>${es.length ? Math.max(...es.map(x => x.score)) : "–"}</td><td>${e.best ? fmt(e.best) : "–"}</td><td>${e.bestRound || "–"}</td></tr>`;
   }).join("");
   return `<div class="panel"><h2>By difficulty</h2><div class="tbl-wrap"><table class="tbl"><thead><tr><th></th><th>Dailies</th><th>Avg</th><th>Best</th><th>Endless best</th><th>Furthest</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
@@ -1174,7 +1384,7 @@ function panelCalendar(p) {
   for (let i = first; i < first + 35; i++) {
     if (i > ti) { cells += `<span class="d" style="visibility:hidden"></span>`; continue; }
     const date = fromIndex(i), day = p.daily.history[date];
-    const best = day ? Math.max(...DIFF_KEYS.filter(d => day[d]).map(d => day[d].score)) : null;
+    const best = day ? Math.max(...DAILY_KEYS.filter(d => day[d]).map(d => day[d].score)) : null;
     cells += `<span class="d${best != null ? " t-" + tierOf(best / 5) : ""}${i === ti ? " today" : ""}" title="${esc(prettyDate(date))}${best != null ? ": best " + best : ""}"></span>`;
   }
   return `<div class="panel"><h2>Last five weeks<span>best daily each day</span></h2>
@@ -1199,16 +1409,18 @@ function panelTrend(p, f) {
 function panelRecent(p, f) {
   const list = p.recent.filter(r => f === "all" || r.diff === f).slice(0, 12);
   if (!list.length) return "";
-  const rows = list.map(r => `<div class="run"><span class="when">${esc(prettyDate(r.date))}</span><span class="what"><span>${r.mode === "daily" ? "Daily #" + dailyNumber(r.date) : "Endless, " + r.rounds + " rounds"}</span><span class="dtag">${DIFFS[r.diff || "normal"].label}</span><span class="sq">${(r.s || []).map(x => `<i class="t-${tierOf(x)}"></i>`).join("")}</span></span><span class="pts">${fmt(r.score)}</span></div>`).join("");
+  const rows = list.map(r => `<div class="run"><span class="when">${esc(prettyDate(r.date))}</span><span class="what"><span>${r.mode === "daily" ? (r.diff === SHARED ? "Plumb #" : "Daily #") + dailyNumber(r.date) : "Endless, " + r.rounds + " rounds"}</span>${r.diff === SHARED ? "" : `<span class="dtag">${DIFFS[r.diff || "normal"].label}</span>`}<span class="sq">${(r.s || []).map(x => `<i class="t-${tierOf(x)}"></i>`).join("")}</span></span><span class="pts">${fmt(r.score)}</span></div>`).join("");
   return `<div class="panel"><h2>Recent games<span>last ${list.length}</span></h2><div class="runs">${rows}</div></div>`;
 }
 function panelDevice(d) {
   const date = ymd();
   const ps = deviceProfiles();
   const today = ps.map(p => ({ id: p.id, color: p.color, v: (p.daily.history[date] || {})[d]?.score })).filter(r => r.v != null).sort((a, b) => b.v - a.v);
-  const endless = ps.map(p => ({ id: p.id, color: p.color, v: p.endless[d].best })).filter(r => r.v > 0).sort((a, b) => b.v - a.v);
+  const endless = p0 => d === SHARED ? [] : ps.map(p => ({ id: p.id, color: p.color, v: p.endless[d].best })).filter(r => r.v > 0).sort((a, b) => b.v - a.v);
   const list = rows => rows.length ? `<div class="lb">${rows.slice(0, 10).map((r, i) => `<div class="lb-row${r.id === state.profile.id ? " me" : ""}" data-id="${esc(r.id)}"><span class="rk">${i + 1}</span><span class="av" style="background:${esc(r.color)}"></span><span class="nm"></span><span class="sc">${fmt(r.v)}</span></div>`).join("")}</div>` : `<div class="empty">Nobody here yet.</div>`;
-  return `<div class="two"><div class="panel"><h2>Today on this device<span>${DIFFS[d].label} daily</span></h2>${list(today)}</div><div class="panel"><h2>Endless on this device<span>${DIFFS[d].label}</span></h2>${list(endless)}</div></div>`;
+  const todayPanel = `<div class="panel"><h2>Today on this device<span>${d === SHARED ? `Plumb #${dailyNumber(date)}` : DIFFS[d].label + " daily"}</span></h2>${list(today)}</div>`;
+  if (d === SHARED) return todayPanel;
+  return `<div class="two">${todayPanel}<div class="panel"><h2>Endless on this device<span>${DIFFS[d].label}</span></h2>${list(endless())}</div></div>`;
 }
 
 /* ---------- players: switch, add, rename, transfer, delete ---------- */
@@ -1287,11 +1499,12 @@ function dailyStatus(d) {
   return n > 0 ? { kind: "prog", n } : { kind: "new" };
 }
 function nextDaily() {
+  if (dailyStatus(SHARED).kind !== "done") return SHARED;
   const d0 = defaultDiff();
   if (dailyStatus(d0).kind !== "done") return d0;
   return DIFF_KEYS.find(d => dailyStatus(d).kind !== "done") || null;
 }
-function dotRange(d) { const a = DIFFS[d].daily; return a[0] + "–" + a[a.length - 1] + " dots"; }
+function dotRange(d) { const a = DIFFS[d].daily; return Math.min(...a) + "–" + Math.max(...a) + " dots"; }
 function greeting() {
   const p = state.profile, h = new Date().getHours();
   const part = h < 5 ? "Evening" : h < 12 ? "Morning" : h < 17 ? "Afternoon" : "Evening";
@@ -1305,18 +1518,20 @@ function renderHome() {
   $("#greet").innerHTML = greeting();
   const el = $("#homeMain"); clearInterval(homeTimer);
   if (!state.profile) { renderCreate(el); return; }
-  const next = nextDaily();
+  const next = nextDaily(), shared = dailyStatus(SHARED), num = dailyNumber(ymd());
   let html = "";
-  if (next) {
-    const st = dailyStatus(next), lbl = DIFFS[next].label;
-    html += `<div class="cta"><button class="btn primary block" id="ctaBtn">${st.kind === "prog" ? `Resume today's ${lbl}` : `Play today's ${lbl}`}</button>
-      <p class="cta-sub">${st.kind === "prog" ? `You're on round ${st.n + 1} of 5.` : `5 rounds, about a minute. Same boards for everyone on ${lbl}.`}</p></div>`;
+  if (shared.kind !== "done") {
+    html += `<div class="cta"><button class="btn primary block" id="ctaBtn">${shared.kind === "prog" ? `Resume Plumb #${num}` : `Play Plumb #${num}`}</button>
+      <p class="cta-sub">${shared.kind === "prog" ? `You're on round ${shared.n + 1} of 5.` : "Today's five boards, the same for everyone. About a minute."}</p></div>`;
   } else {
-    html += `<div class="summary alldone"><span class="kicker">All three dailies done</span><div class="cd-big" id="homeCd">--:--:--</div><p class="next">until tomorrow's boards</p>
-      <div class="actions"><button class="btn primary" id="homeEndless">Start an Endless run</button><button class="btn" id="homeShare">Copy today's results</button></div><pre class="sharebox" hidden></pre></div>`;
+    html += `<div class="summary alldone"><span class="kicker">Plumb #${num} done</span><div class="cd-big">${shared.score}<small style="font-size:22px;color:var(--ink-3)">/500</small></div>
+      <div class="tiles" style="justify-content:center">${shared.s.map(x => `<span class="tile t-${tierOf(x)}">${x}</span>`).join("")}</div>
+      <p class="next">Next Plumb in <span id="homeCd">--:--:--</span></p>
+      <div class="actions"><button class="btn primary" id="homeCard">See your card</button><button class="btn" id="homeShare">Copy result</button></div><pre class="sharebox" hidden></pre></div>`;
   }
+  html += `<div class="extras-head"><span class="ec-title">More dailies</span><span class="hint">Optional. Any finished daily keeps your streak.</span></div>`;
   html += `<div class="dailies" role="list">${DIFF_KEYS.map(d => {
-    const st = dailyStatus(d), lbl = DIFFS[d].label, isNext = d === next;
+    const st = dailyStatus(d), lbl = DIFFS[d].label, isNext = shared.kind === "done" && d === next;
     if (st.kind === "done") return `<button class="dcard done t-${tierOf(st.score / 5)}" data-d="${d}" role="listitem" aria-label="${lbl} daily, done, ${st.score} of 500"><span class="dc-name">${lbl}</span><span class="dc-mid">${st.score}<small>/500</small></span><span class="dc-foot">${st.s.map(x => `<i class="t-${tierOf(x)}"></i>`).join("")}</span></button>`;
     if (st.kind === "prog") return `<button class="dcard${isNext ? " is-next" : ""}" data-d="${d}" role="listitem" aria-label="${lbl} daily, round ${st.n + 1} of 5"><span class="dc-name">${lbl}</span><span class="dc-mid">${st.n}<small>/5</small></span><span class="dc-foot">${[0, 1, 2, 3, 4].map(i => `<i class="${i < st.n ? "t-m" : "empty"}"></i>`).join("")}</span></button>`;
     return `<button class="dcard${isNext ? " is-next" : ""}" data-d="${d}" role="listitem" aria-label="${lbl} daily, not played"><span class="dc-name">${lbl}</span><span class="dc-mid" style="font-size:17px">${dotRange(d)}</span><span class="dc-foot">${isNext ? "Up next" : "Not played"}</span></button>`;
@@ -1334,11 +1549,11 @@ function renderHome() {
   const he = $("#homeEndless"); if (he) he.addEventListener("click", () => playEndless(ed));
   const hs = $("#homeShare");
   if (hs) hs.addEventListener("click", e2 => {
-    const date = ymd(), day = state.profile.daily.history[date] || {};
-    const lines = DIFF_KEYS.filter(d => day[d]).map(d => `${DIFFS[d].label.padEnd(6)} ${day[d].score}/500 ${day[d].s.map(x => EMOJI[tierOf(x)]).join("")}`);
-    copyText(`Plumb #${dailyNumber(date)}\n${lines.join("\n")}`, e2.currentTarget, "Copy today's results");
+    const g = state.games["daily:" + SHARED] && state.games["daily:" + SHARED].date === ymd() ? state.games["daily:" + SHARED] : newDaily(SHARED);
+    copyText(shareText(g), e2.currentTarget, "Copy result");
   });
-  if (!next) {
+  const hc = $("#homeCard"); if (hc) hc.addEventListener("click", () => playDaily(SHARED));
+  if (shared.kind === "done") {
     const tick = () => {
       const now = new Date(), mid = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
       const sec = Math.max(0, Math.floor((mid - now) / 1000)), c = $("#homeCd");
@@ -1620,8 +1835,8 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) toyS
 
 /* ---------- leaderboard ---------- */
 function renderLb() {
-  const el = $("#lb"), d = state.lbDiff || defaultDiff(), many = Players.index.list.length > 1;
-  el.innerHTML = `<div class="phead"><h1 class="vtitle">Leaderboard</h1><div class="seg small" id="lbDiff" role="group" aria-label="Difficulty">${DIFF_KEYS.map(k => `<button type="button" data-d="${k}" aria-pressed="${k === d}">${DIFFS[k].label}</button>`).join("")}</div></div>
+  const el = $("#lb"), d = state.lbDiff || SHARED, many = Players.index.list.length > 1;
+  el.innerHTML = `<div class="phead"><h1 class="vtitle">Leaderboard</h1><div class="seg small" id="lbDiff" role="group" aria-label="Difficulty">${DAILY_KEYS.map(k => `<button type="button" data-d="${k}" aria-pressed="${k === d}">${DIFFS[k].label}</button>`).join("")}</div></div>
     ${panelDevice(d)}
     <div class="empty">${many ? "These boards rank the players on this device." : "Right now this ranks players on this device, so it's just you."} Friend leaderboards come with accounts in the public version.${many ? "" : `<button class="btn small" id="lbAdd">Add a player</button>`}</div>`;
   el.querySelectorAll("#lbDiff button").forEach(b => b.addEventListener("click", () => { state.lbDiff = b.dataset.d; renderLb(); }));
@@ -1710,5 +1925,3 @@ if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
 </script>
 
 </body></html>
-</body>
-</html>
