@@ -137,6 +137,9 @@ kbd{font:600 11px var(--font-mono);padding:1px 5px;border-radius:3px;border:1px 
 .tiles{display:flex;gap:6px}
 .tile{width:44px;height:44px;border-radius:5px;display:grid;place-items:center;font:600 14px var(--font-mono);color:#fff;background:var(--tier)}
 .tile.t-m{background:var(--t4);color:var(--ink)}
+button.tile{border:0;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .1s ease-out}
+button.tile:active{transform:translateY(1px)}
+button.tile[aria-pressed="true"]{outline:2.5px solid var(--ink);outline-offset:2px}
 .facts{display:flex;flex-wrap:wrap;gap:6px 16px;color:var(--ink-2);font-size:14px}
 .facts b{font-family:var(--font-mono);color:var(--ink);font-weight:600}
 .facts .new{color:var(--pen);font-weight:700}
@@ -842,6 +845,7 @@ function setReview(i) {
   const g = game(); if (!g || g.mode !== "daily" || g.phase !== "done") return;
   g.review = (i + 5) % 5;
   document.querySelectorAll("#hud .pip[data-r]").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.r === g.review)));
+  document.querySelectorAll("#sumTiles .tile[data-tr]").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.tr === g.review)));
   const el = $("#review"); if (el) el.textContent = reviewLine(g);
   redraw();
 }
@@ -1090,7 +1094,7 @@ function renderDailyDone(g, ro) {
   const rank = deviceRank(g.diff), grp = grouping(g.results);
   const nextLabel = d => d === SHARED ? "Play today's Plumb" : `Play ${DIFFS[d].label} daily`;
   ro.innerHTML = `<div class="summary">
-    <div class="sum-row"><div><span class="kicker">${g.diff === SHARED ? "Plumb" : DIFFS[g.diff].label + " daily"} #${g.num}, ${esc(prettyDate(g.date))}</span><div class="total">${total}<small>/500</small></div></div><div class="tiles">${s.map(x => `<span class="tile t-${tierOf(x)}">${x}</span>`).join("")}</div></div>
+    <div class="sum-row"><div><span class="kicker">${g.diff === SHARED ? "Plumb" : DIFFS[g.diff].label + " daily"} #${g.num}, ${esc(prettyDate(g.date))}</span><div class="total">${total}<small>/500</small></div></div><div class="tiles" id="sumTiles">${s.map((x, i) => `<button type="button" class="tile t-${tierOf(x)}" data-tr="${i}" aria-pressed="${i === g.review}" aria-label="Show round ${i + 1}, ${x} points">${x}</button>`).join("")}</div></div>
     <p class="review" id="review" aria-live="polite">${esc(reviewLine(g))}</p><p class="hint" style="margin:-6px 0 0">Tap the board or a round square to step through your rounds.</p>
     <div class="facts"><span>Avg miss <b>${(avg(g.results.map(r => r.d)) * 100).toFixed(2)}%</b></span><span>${esc(leanSentence(grp))}</span><span>Streak <b>${streak}</b> day${streak === 1 ? "" : "s"}</span>${rank ? `<span>On this device <b>#${rank.pos}</b> of ${rank.of}</span>` : ""}</div>
     <div class="card-wrap"><img class="share-card" id="shareImg" alt="Your shot grouping for ${esc(dailyName(g.diff))} #${g.num}: five misses plotted around the true center, ${total} of 500."><p class="hint" id="shareHint"></p></div>
@@ -1098,6 +1102,7 @@ function renderDailyDone(g, ro) {
     <pre class="sharebox" id="shareBox" hidden></pre>
     <div class="actions">${others.length ? `<button class="btn" id="tryOther" data-d="${others[0]}">${nextLabel(others[0])}</button>` : ""}<button class="btn" id="playEndless">Play Endless</button></div>
     <p class="next">Next boards in <span id="cd">--:--:--</span> (your local midnight)</p></div>`;
+  ro.querySelectorAll("#sumTiles .tile[data-tr]").forEach(b => b.addEventListener("click", () => setReview(+b.dataset.tr)));
   const to = $("#tryOther"); if (to) to.addEventListener("click", () => { state.playDiff = to.dataset.d; setView("daily"); });
   $("#playEndless").addEventListener("click", () => { state.playDiff = g.diff === SHARED ? defaultDiff() : g.diff; setView("endless"); });
   $("#copyBtn").addEventListener("click", e => copyText(shareText(g), e.currentTarget, "Copy text"));
