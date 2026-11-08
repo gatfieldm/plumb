@@ -622,7 +622,10 @@ function commit(p) {
   }
   g.results[g.idx] = res; g.phase = "reveal"; g.revealAt = performance.now();
   state.aim = null; state.down = false; state.finger = null;
-  if (g.mode === "daily") LS.set(LS_PROGRESS(state.profile.id, g.diff), { date: g.date, results: g.results });
+  if (g.mode === "daily") {
+    if (g.idx >= 4) { recordDaily(state.profile, g); renderWho(); }
+    else LS.set(LS_PROGRESS(state.profile.id, g.diff), { date: g.date, results: g.results });
+  }
   if (s === 100) { flash("Bullseye"); buzz([12, 40, 24]); } else buzz(10);
   kick(revealDur(r) + 900); renderPlay();
 }
@@ -647,23 +650,39 @@ function tapReveal() {
 const revealDur = r => (r.pts.length - 1) * 90 + 760;
 function buzz(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch {} }
 function addTotals(p, results) { for (const r of results) { p.totals.rounds++; p.totals.errSum += r.d; p.totals.scoreSum += r.s; if (r.s === 100) p.totals.bullseyes++; } }
-function finishDaily(g) {
-  const p = state.profile;
+// Saves a finished daily (history, streak, totals) and clears its in-progress copy. Safe to call more than once.
+// It runs as soon as round 5 locks in, so leaving during the last reveal never loses the result or the streak.
+function recordDaily(p, g) {
   const day = p.daily.history[g.date] || (p.daily.history[g.date] = {});
   if (!day[g.diff]) {
     const s = g.results.map(r => r.s), e = g.results.map(r => r.d), score = s.reduce((a, b) => a + b, 0);
     day[g.diff] = { score, s, e, n: DIFFS[g.diff].daily.slice(), g: g.results.map(r => r.guess ? [r.guess.x, r.guess.y] : null) };
     const di = dayIndex(g.date), last = p.daily.lastDate ? dayIndex(p.daily.lastDate) : null;
-    if (last !== di) p.daily.streak = last === di - 1 ? p.daily.streak + 1 : 1;
+    // A day recovered late (older than the last day played) fills in history but leaves the current streak alone.
+    if (last == null || di > last) {
+      p.daily.streak = last === di - 1 ? p.daily.streak + 1 : 1;
+      p.daily.lastDate = g.date;
+    }
     p.daily.bestStreak = Math.max(p.daily.bestStreak, p.daily.streak);
-    p.daily.lastDate = g.date;
     addTotals(p, g.results);
     p.recent.unshift({ mode: "daily", diff: g.diff, date: g.date, at: Date.now(), score, rounds: 5, avgErr: avg(e), s });
     p.recent = p.recent.slice(0, MAX_RECENT);
     Players.save(p);
   }
   LS.set(LS_PROGRESS(p.id, g.diff), null);
+}
+function finishDaily(g) {
+  recordDaily(state.profile, g);
   g.phase = "done"; redraw(); renderPlay(); renderWho();
+}
+// Before Nov 8 2026 a daily was only saved on "See results", so a player who left during the last reveal
+// has all five rounds sitting in progress. Save those now, on whatever day they were played.
+function rescueDailies(p) {
+  for (const d of DAILY_KEYS) {
+    const prog = LS.get(LS_PROGRESS(p.id, d));
+    if (prog && prog.date && Array.isArray(prog.results) && prog.results.length >= 5 && prog.results.slice(0, 5).every(r => r && typeof r.s === "number"))
+      recordDaily(p, { diff: d, date: prog.date, results: prog.results.slice(0, 5) });
+  }
 }
 function finishEndless(g) {
   const p = state.profile, e = p.endless[g.diff], rounds = g.results.length;
@@ -1320,6 +1339,7 @@ function createPlayer(name, color, d) {
   go("home");
 }
 function activate(p) {
+  rescueDailies(p);
   state.profile = p; state.games = {}; state.aim = null;
   renderWho();
 }
