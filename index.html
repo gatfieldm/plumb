@@ -260,7 +260,7 @@ button.brand{border:0;background:none;padding:0;cursor:pointer}
 .wslider.hint .ws-thumb{animation:wsPulse 1.5s ease-in-out infinite}
 @keyframes wsPulse{50%{box-shadow:0 0 0 8px var(--pen-soft)}}
 .ws-cap{font-size:11px;color:var(--ink-3)}
-.toy-note{margin:-6px 0 0;text-align:center;font-size:13px;color:var(--ink-2);min-height:19px;text-wrap:balance}
+.toy-note{margin:-6px 0 0;text-align:center;font-size:13px;color:var(--ink-2);min-height:40px;text-wrap:balance}
 .toy-note b{font-family:var(--font-mono);color:var(--pen)}
 .toy-mode{display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:var(--ink-3);margin-top:-6px}
 .toy-hint{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);font-size:12px;color:var(--ink-2);background:var(--board);padding:1px 9px;border-radius:999px;border:1px solid var(--grid);pointer-events:none;transition:opacity .3s ease-in;white-space:nowrap}
@@ -275,7 +275,10 @@ button.brand{border:0;background:none;padding:0;cursor:pointer}
 .tcap{margin:0;font-size:14px;line-height:1.45;color:var(--ink);display:grid}
 .tcap>span{grid-area:1/1;visibility:hidden;text-wrap:pretty}
 .tcap>span.on{visibility:visible}
-.toy-replay{align-self:center;margin:-10px auto 0;border:0;background:none;padding:10px 12px;min-height:44px;font-size:13px;font-weight:600;color:var(--ink-2);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+/* The link row keeps its height whether or not a link shows, so nothing below the board moves. */
+.toy-links{display:flex;justify-content:center;gap:4px;min-height:44px;margin-top:-14px}
+.toy.static{touch-action:auto;cursor:default}
+.toy-replay{border:0;background:none;padding:10px 12px;min-height:44px;font-size:13px;font-weight:600;color:var(--ink-2);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .toy-replay[hidden]{display:none}
 .cta{display:flex;flex-direction:column;gap:6px}
 .cta-sub{margin:0;text-align:center;font-size:13px;color:var(--ink-3)}
@@ -349,7 +352,7 @@ body.with-tabs .app{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
       </div>
     </div>
     <p class="toy-note" id="toyNote" aria-live="polite"></p>
-    <button class="toy-replay" id="toyReplay" type="button" hidden>Watch the demo again</button>
+    <div class="toy-links"><button class="toy-replay" id="toyMine" type="button" hidden></button><button class="toy-replay" id="toyReplay" type="button" hidden>Watch the demo again</button></div>
     <div class="home-main" id="homeMain"></div>
   </section>
 
@@ -1531,6 +1534,7 @@ function greeting() {
 let homeTimer = 0;
 function renderHome() {
   $("#greet").innerHTML = greeting();
+  heroSync();
   const el = $("#homeMain"); clearInterval(homeTimer);
   if (!state.profile) { renderCreate(el); return; }
   const next = nextDaily(), shared = dailyStatus(SHARED), num = dailyNumber(ymd());
@@ -1616,6 +1620,12 @@ function toyLoop(t) {
   toy.raf = 0;
   if (state.view !== "home" || document.hidden || !toy.TW) return;
   const rm = reduceMotion(), hands = toy.drag >= 0 || toy.pinch || toy.sliding;
+  if (hero.sum) {
+    const save = [ctx, W]; ctx = tctx; W = toy.TW; let more = false;
+    try { more = drawSummary(t, rm); } finally { [ctx, W] = save; }
+    if (more) toy.raf = requestAnimationFrame(toyLoop);
+    return;
+  }
   if (demo.on) {
     const dt = toy.last ? Math.min(0.05, (t - toy.last) / 1000) : 0.016; toy.last = t;
     const save = [ctx, W]; ctx = tctx; W = toy.TW; let more = true;
@@ -1838,18 +1848,89 @@ function drawCenterLabel(cx, cy, comR, obstacles, dt, rm, alpha) {
   return settling;
 }
 function demoSyncUI() {
-  // The step bar keeps its space after the demo (its caption changes), so the board never jumps under a finger.
-  $("#tSteps").classList.toggle("practice", !demo.on);
-  $("#toyReplay").hidden = demo.on;
+  const mode = hero.sum ? "sum" : demo.on ? "demo" : "practice";
+  $("#tSteps").classList.toggle("practice", mode !== "demo");
   const cap = $("#tCap");
-  if (!cap.children.length) cap.innerHTML = DEMO_STEPS.concat([PRACTICE_CAP]).map(h => `<span>${h}</span>`).join("");
-  const showCap = demo.on ? Math.max(0, demo.step) : DEMO_STEPS.length;
+  if (!cap.children.length) cap.innerHTML = DEMO_STEPS.concat([PRACTICE_CAP, ""]).map(h => `<span>${h}</span>`).join("");
+  if (cap.children[4].innerHTML !== hero.cap) cap.children[4].innerHTML = hero.cap;
+  const showCap = mode === "demo" ? Math.max(0, demo.step) : mode === "practice" ? 3 : 4;
   [...cap.children].forEach((el, i) => el.classList.toggle("on", i === showCap));
-  if (demo.on) {
-    const segs = $("#tSteps").querySelectorAll(".tsegs i");
-    segs.forEach((el, i) => el.classList.toggle("on", i <= demo.step));
-    toyEl.setAttribute("aria-label", "Demo of one round on a practice board: a few dots appear, a guess is aimed at their hidden center and locked in, then the true center and the score are revealed. Tap the board to try it yourself.");
-  } else toyEl.setAttribute("aria-label", "Practice board. Drag a dot to move it. Tap a dot to select it, then change its weight. The center of mass moves with it.");
+  const replay = $("#toyReplay"), mine = $("#toyMine");
+  replay.hidden = mode === "demo"; replay.textContent = mode === "sum" ? "Watch the demo" : "Watch the demo again";
+  const key = heroSummaryKey();
+  mine.hidden = mode === "sum" || !key; if (key) mine.textContent = `Show my Plumb #${dailyNumber(ymd())}`;
+  toyEl.classList.toggle("static", mode === "sum");
+  if (mode === "sum") toyEl.setAttribute("aria-label", `Your shots from Plumb #${hero.num}, plotted by how far and which way each one missed the true center. Average miss ${hero.am.toFixed(1)}%. ${leanSentence(hero.grp)}.`);
+  else if (mode === "demo") toyEl.setAttribute("aria-label", "Demo of one round on a practice board: a few dots appear, a guess is aimed at their hidden center and locked in, then the true center and the score are revealed. Tap the board to try it yourself.");
+  else toyEl.setAttribute("aria-label", "Practice board. Drag a dot to move it. Tap a dot to select it, then change its weight. The center of mass moves with it.");
+}
+/* ---------- home summary: once today's Plumb is done, the board shows that player's shot grouping ---------- */
+// Same picture as the share card: each round's miss (guess minus true center) around the center, ringed at the score boundaries.
+const hero = { sum: false, key: "", dismissed: "", at: 0, grp: null, num: 0, am: 0, cap: "" };
+function heroSummaryKey() {
+  const p = state.profile; if (!p) return "";
+  const h = (p.daily.history[ymd()] || {})[SHARED];
+  return h && Array.isArray(h.g) && h.g.some(Boolean) ? `${p.id}:${ymd()}:${h.score}` : "";   // older results without guesses can't be plotted
+}
+function heroShowSummary(key) {
+  const g = newDaily(SHARED);
+  hero.grp = grouping(g.results); hero.num = g.num; hero.am = avg(g.results.map(r => r.d)) * 100;
+  hero.key = key; hero.sum = true; hero.at = performance.now();
+  hero.cap = `<b>Your Plumb #${g.num} shots.</b> Each dot is one round, placed by how far and which way you missed.`;
+  demo.on = false; toy.sel = -1; toy.drag = -1; toy.press = null; toy.pinch = null; toy.sliding = false; toyEl.classList.remove("dragging");
+  demoSyncUI(); toySyncUI(); toyStart();
+}
+// Called whenever home renders: show the summary when there is one the player hasn't swapped away from.
+function heroSync() {
+  const key = heroSummaryKey(), want = !!key && key !== hero.dismissed;
+  if (want && (!hero.sum || hero.key !== key)) heroShowSummary(key);
+  else if (!want && hero.sum) demoStart();
+  else { demoSyncUI(); toySyncUI(); }
+}
+function drawSummary(t, rm) {
+  const grp = hero.grp, k0 = rm ? 1e9 : t - hero.at, n = grp.v.length;
+  const cx = W / 2, cy = W / 2, R = W / 2 - 22;
+  const widest = Math.max(0, ...grp.v.map(q => Math.hypot(q.x, q.y))), VIEW = clamp(widest / 0.8, 0.035, CARD_MAX), kk = R / VIEW;
+  ctx.clearRect(0, 0, W, W); drawBoard(true);
+  const ba = clamp(k0 / 300);
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, W); ctx.clip();
+  for (const [d, col] of [[CARD_MAX * 2, T.t4], [RING_D[0], T.t3], [RING_D[1], T.t2], [RING_D[2], T.t1]]) {
+    ctx.beginPath(); ctx.arc(cx, cy, d * kk, 0, Math.PI * 2);
+    ctx.fillStyle = col; ctx.globalAlpha = 0.08 * ba; ctx.fill();
+    ctx.globalAlpha = ba; ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.stroke();
+  }
+  ctx.strokeStyle = T.t1; ctx.lineWidth = 1; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.arc(cx, cy, BULLSEYE * kk, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+  ctx.font = '600 11px "Atkinson Hyperlegible", system-ui, sans-serif'; ctx.fillStyle = T["ink-2"]; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  [["60", RING_D[0]], ["75", RING_D[1]], ["90", RING_D[2]]].forEach(([txt, d]) => { const a = -Math.PI / 4, rr = d * kk; if (rr * 0.71 + 16 < W / 2) ctx.fillText(txt, cx + Math.cos(a) * rr + 9, cy + Math.sin(a) * rr - 6); });
+  ctx.restore(); ctx.globalAlpha = ba;
+  drawCoM(cx, cy, Math.max(7, W * 0.024));
+  ctx.globalAlpha = 1;
+  const appear = i => rm ? 1 : clamp((k0 - 250 - i * 90) / 220);
+  const shots = grp.v.map((q, i) => { const L = Math.hypot(q.x, q.y), f = L > VIEW ? VIEW / L : 1; return { x: cx + q.x * f * kk, y: cy + q.y * f * kk, s: q.s, i, out: f < 1 }; });
+  ctx.setLineDash([4, 3]); ctx.lineWidth = 1.5;
+  for (const p of shots) { const a = appear(p.i); if (a <= 0) continue; ctx.strokeStyle = tierColor(p.s); ctx.globalAlpha = 0.55 * a; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(p.x, p.y); ctx.stroke(); }
+  ctx.setLineDash([]); ctx.globalAlpha = 1;
+  if (n > 1 && leanSentence(grp) !== "No clear lean") {   // group center and scatter, as on the card
+    const la = rm ? 1 : clamp((k0 - 250 - n * 90 - 150) / 250);
+    if (la > 0) {
+      const gx = cx + clamp(grp.mx, -VIEW, VIEW) * kk, gy = cy + clamp(grp.my, -VIEW, VIEW) * kk;
+      ctx.globalAlpha = la; ctx.strokeStyle = T.pen; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.arc(gx, gy, clamp(grp.spread * kk, 12, R * 0.4), 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(gx - 6, gy); ctx.lineTo(gx + 6, gy); ctx.moveTo(gx, gy - 6); ctx.lineTo(gx, gy + 6); ctx.stroke(); ctx.globalAlpha = 1;
+    }
+  }
+  ctx.font = '700 11px "Atkinson Hyperlegible", system-ui, sans-serif';
+  for (const p of shots) {
+    const a = appear(p.i); if (a <= 0) continue;
+    const r = 10 * (rm ? 1 : easeBack(a));
+    ctx.fillStyle = T.board; ctx.beginPath(); ctx.arc(p.x, p.y, r + 2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = tierColor(p.s); ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
+    if (p.s === 100) { ctx.strokeStyle = T.t1; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(p.x, p.y, r + 5, 0, Math.PI * 2); ctx.stroke(); }
+    if (p.out) { ctx.strokeStyle = T.ink; ctx.lineWidth = 1; ctx.setLineDash([2, 2]); ctx.beginPath(); ctx.arc(p.x, p.y, r + 5, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); }
+    if (a >= 1) { ctx.fillStyle = p.s < 60 ? T.ink : "#fff"; ctx.fillText(String(p.i + 1), p.x, p.y + 0.5); }
+  }
+  ctx.textAlign = "start";
+  return k0 < 250 + n * 90 + 600;
 }
 // Ends the demo and keeps its dots, so the board doesn't jump under the player's finger.
 function demoStop() {
@@ -1861,11 +1942,12 @@ function demoStop() {
   demoSyncUI(); toySyncUI();
 }
 function demoStart() {
-  demo.on = true; demo.loops = 0; demo.step = -1;
+  hero.sum = false; demo.on = true; demo.loops = 0; demo.step = -1;
   toy.sel = -1; toy.drag = -1; toy.press = null; toy.pinch = null; toy.sliding = false; toyEl.classList.remove("dragging");
   demoSeed(performance.now()); demoSyncUI(); toySyncUI(); toyStart();
 }
-$("#toyReplay").addEventListener("click", demoStart);
+$("#toyReplay").addEventListener("click", () => { if (hero.sum) hero.dismissed = hero.key; demoStart(); });
+$("#toyMine").addEventListener("click", () => { hero.dismissed = ""; const key = heroSummaryKey(); if (key) heroShowSummary(key); });
 function toyPoint(e) { const r = toyEl.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }; }
 // A dot counts as touched within its radius plus a finger's width, so taps never land on the wrong dot.
 function hitDot(q) {
@@ -1905,7 +1987,9 @@ function toySyncUI() {
   $("#wsFill").style.height = (has ? k * 100 : 0) + "%"; $("#wsThumb").style.top = (has ? (1 - k) * 100 : 100) + "%";
   const how = sl ? "Use the slider or scroll over it to change it." : "Pinch anywhere to change it.";
   let note = "";
-  if (demo.on) note = sl ? "Click the board to try it yourself." : "Tap the board to try it yourself.";
+  $("#wslider").style.visibility = hero.sum ? "hidden" : "";
+  if (hero.sum) note = `Average miss ${hero.am.toFixed(1)}%. ${leanSentence(hero.grp)}.`;
+  else if (demo.on) note = sl ? "Click the board to try it yourself." : "Tap the board to try it yourself.";
   else if (performance.now() < toy.nudgeUntil) note = sl ? "Click a dot first to select it." : "Tap a dot first to select it.";
   else if (has) note = `Selected dot weighs <b>${w.toFixed(1)}</b>. ${how}`;
   else if (toy.touched) note = sl ? "Click a dot to select it, then use the slider to change its weight." : "Tap a dot to select it, then pinch anywhere to change its weight.";
@@ -1914,6 +1998,7 @@ function toySyncUI() {
 
 // One finger: a short tap selects a dot (or clears the selection on empty space); moving more than 6 px drags it.
 function toyDown(e) {
+  if (hero.sum) return;
   if (demo.on) demoStop();
   const q = toyPoint(e), i = hitDot(q);
   toy.press = { i, x: e.clientX, y: e.clientY, moved: false, off: i >= 0 ? { x: toy.pts[i].ax - q.x, y: toy.pts[i].ay - q.y } : null };
@@ -1935,17 +2020,18 @@ function toyRelease() {
   if (pr && !pr.moved) { if (pr.i >= 0) { markTouched(); select(pr.i); } else select(-1); }
   toy.drag = -1; toyEl.classList.remove("dragging"); toySyncUI(); toyStart();
 }
-toyEl.addEventListener("pointerdown", e => { if (e.pointerType === "touch") { setWeightMode("pinch"); return; } if (e.pointerType === "mouse") setWeightMode("slider"); try { toyEl.setPointerCapture(e.pointerId); } catch {} toyDown(e); });
+toyEl.addEventListener("pointerdown", e => { if (hero.sum) return; if (e.pointerType === "touch") { setWeightMode("pinch"); return; } if (e.pointerType === "mouse") setWeightMode("slider"); try { toyEl.setPointerCapture(e.pointerId); } catch {} toyDown(e); });
 toyEl.addEventListener("pointermove", e => { if (e.pointerType !== "touch") toyMoveTo(e); });
 toyEl.addEventListener("pointerup", e => { if (e.pointerType !== "touch") toyRelease(); });
 toyEl.addEventListener("pointercancel", e => { if (e.pointerType !== "touch") toyRelease(); });
 toyEl.addEventListener("touchstart", e => {
+  if (hero.sum) return;
   e.preventDefault();
   if (e.touches.length >= 2) { toy.press = null; toy.drag = -1; toyEl.classList.remove("dragging"); return; }   // the page-wide pinch handler takes over
   toyDown(e.changedTouches[0]);
 }, { passive: false });
-toyEl.addEventListener("touchmove", e => { e.preventDefault(); if (!toy.pinch && e.touches.length === 1) toyMoveTo(e.touches[0]); }, { passive: false });
-toyEl.addEventListener("touchend", e => { e.preventDefault(); if (e.touches.length === 0 && !toy.pinch) toyRelease(); }, { passive: false });
+toyEl.addEventListener("touchmove", e => { if (hero.sum) return; e.preventDefault(); if (!toy.pinch && e.touches.length === 1) toyMoveTo(e.touches[0]); }, { passive: false });
+toyEl.addEventListener("touchend", e => { if (hero.sum) return; e.preventDefault(); if (e.touches.length === 0 && !toy.pinch) toyRelease(); }, { passive: false });
 toyEl.addEventListener("touchcancel", () => { toy.press = null; toyRelease(); });
 
 // Pinch mode: with a dot selected, two fingers anywhere on the home screen change its weight.
@@ -1953,7 +2039,7 @@ toyEl.addEventListener("touchcancel", () => { toy.press = null; toyRelease(); })
 const fingerGap = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
 const homeEl = $("#home");
 homeEl.addEventListener("touchstart", e => {
-  if (state.view !== "home" || toy.mode !== "pinch" || e.touches.length < 2 || toy.pinch) return;
+  if (state.view !== "home" || hero.sum || toy.mode !== "pinch" || e.touches.length < 2 || toy.pinch) return;
   if (toy.sel < 0) {
     const r = toyEl.getBoundingClientRect(), on = t => t.clientX >= r.left && t.clientX <= r.right && t.clientY >= r.top && t.clientY <= r.bottom;
     if (on(e.touches[0]) || on(e.touches[1])) { e.preventDefault(); nudge(); }
@@ -1994,7 +2080,7 @@ wsEl.addEventListener("keydown", e => {
 
 // On a computer: trackpad pinch anywhere on the board, or the mouse wheel over the selected dot.
 toyEl.addEventListener("wheel", e => {
-  if (demo.on || toy.sel < 0) return;
+  if (hero.sum || demo.on || toy.sel < 0) return;
   const q = toyPoint(e), p = toy.pts[toy.sel];
   if (!e.ctrlKey && Math.hypot(p.x - q.x, p.y - q.y) > 0.1) return;   // ordinary scrolling elsewhere still scrolls the page
   e.preventDefault();
