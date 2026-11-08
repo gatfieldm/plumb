@@ -1610,13 +1610,16 @@ const toy = { pts: [], drag: -1, TW: 0, raf: 0, last: 0, touched: false, touched
 // Touch screens pinch to change weight; a mouse or trackpad gets the slider beside the board.
 const coarseMQ = window.matchMedia ? matchMedia("(pointer: coarse)") : null;
 toy.mode = coarseMQ && coarseMQ.matches ? "pinch" : "slider";
+// Whether the slider column is laid out is decided from the device, not from the last touch or click.
+// Some touch screens report a fine pointer; switching layout on the first touch resized the board and pushed the page down.
+toy.sliderLayout = toy.mode === "slider";
 function setWeightMode(m) {
   if (toy.mode === m) return;
   toy.mode = m; toy.pinch = null; toy.sliding = false;
   if (m === "slider" && toy.sel >= 0 && !toy.pinched) $("#wslider").classList.add("hint");
   toySyncUI(); toyStart();
 }
-if (coarseMQ && coarseMQ.addEventListener) coarseMQ.addEventListener("change", () => setWeightMode(coarseMQ.matches ? "pinch" : "slider"));
+if (coarseMQ && coarseMQ.addEventListener) coarseMQ.addEventListener("change", () => { toy.sliderLayout = !coarseMQ.matches; setWeightMode(coarseMQ.matches ? "pinch" : "slider"); });
 const TOY_MAX_W = 5;   // weights run from 1 to 5
 function toySeed() {
   toy.pts = genPoints(3, Math.random, false).map(p => ({ ax: p.x, ay: p.y, x: p.x, y: p.y, m: 1, ph: Math.random() * 6.28, ph2: Math.random() * 6.28 }));
@@ -2000,13 +2003,14 @@ function nudge() {
 let noteCache = "";
 function toySyncUI() {
   const sl = toy.mode === "slider", has = toy.sel >= 0, w = has ? toy.pts[toy.sel].m : 1;
-  $("#toyRow").classList.toggle("slider", sl);
-  const ws = $("#wslider"); ws.hidden = !sl; ws.classList.toggle("off", !has);
+  const lay = toy.sliderLayout;
+  $("#toyRow").classList.toggle("slider", lay);
+  const ws = $("#wslider"); ws.hidden = !lay; ws.classList.toggle("off", !has);
   ws.setAttribute("aria-disabled", String(!has)); ws.setAttribute("aria-valuenow", w.toFixed(1));
   $("#wsVal").textContent = has ? w.toFixed(1) : "–";
   const k = (w - 1) / (TOY_MAX_W - 1);
   $("#wsFill").style.height = (has ? k * 100 : 0) + "%"; $("#wsThumb").style.top = (has ? (1 - k) * 100 : 100) + "%";
-  const how = sl ? "Use the slider or scroll over it to change it." : "Pinch anywhere to change it.";
+  const how = sl ? (lay ? "Use the slider or scroll over it to change it." : "Scroll over it to change it.") : (lay ? "Pinch anywhere or use the slider to change it." : "Pinch anywhere to change it.");
   let note = "";
   $("#wslider").style.visibility = hero.sum ? "hidden" : "";
   if (hero.sum) note = `Average miss ${hero.am.toFixed(1)}%. ${leanSentence(hero.grp)}.`;
