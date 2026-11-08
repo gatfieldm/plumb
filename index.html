@@ -1219,10 +1219,7 @@ function wireShare(g) {
   btn.addEventListener("click", async () => {
     const text = shareText(g);
     try {
-      if (blob && navigator.canShare) {
-        const file = new File([blob], name, { type: "image/png" });
-        if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text }); return; }
-      }
+      // Share sends the result text only; the card image stays available to save or press and hold.
       if (navigator.share) { await navigator.share({ text }); return; }
     } catch (err) { if (err && err.name === "AbortError") return; }
     copyText(text, btn, "Share");
