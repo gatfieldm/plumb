@@ -271,7 +271,10 @@ button.brand{border:0;background:none;padding:0;cursor:pointer}
 .tsegs{display:flex;gap:6px}
 .tsegs i{flex:1;height:4px;border-radius:2px;background:var(--grid-strong);transition:background .25s}
 .tsegs i.on{background:var(--ink)}
-.tcap{margin:0;font-size:14px;line-height:1.45;color:var(--ink);min-height:41px;text-wrap:pretty}
+/* Every caption sits in the same grid cell, so the cell is as tall as the longest one and the board below never moves. */
+.tcap{margin:0;font-size:14px;line-height:1.45;color:var(--ink);display:grid}
+.tcap>span{grid-area:1/1;visibility:hidden;text-wrap:pretty}
+.tcap>span.on{visibility:visible}
 .toy-replay{align-self:center;margin:-10px auto 0;border:0;background:none;padding:10px 12px;min-height:44px;font-size:13px;font-weight:600;color:var(--ink-2);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .toy-replay[hidden]{display:none}
 .cta{display:flex;flex-direction:column;gap:6px}
@@ -1698,6 +1701,7 @@ const DEMO_STEPS = [
   "<b>Step 2 of 3.</b> Drag to aim where the dots would balance, then lock in.",
   "<b>Step 3 of 3.</b> Lines meet at the true center. The closer your guess, the more points, up to 100."
 ];
+const PRACTICE_CAP = "<b>Practice board.</b> Drag a dot and the center follows. The game hides it until you lock in.";
 const DEMO_LEN = 8400, DEMO_MAX_LOOPS = 8;   // after 8 loops (about a minute) it rests on a reveal, to save battery
 const demo = { on: true, t0: 0, pts: [], c: null, g: null, s0: null, mid: null, score: 0, n: 0, step: -1, loops: 0 };
 function demoSeed(t) {
@@ -1837,11 +1841,13 @@ function demoSyncUI() {
   // The step bar keeps its space after the demo (its caption changes), so the board never jumps under a finger.
   $("#tSteps").classList.toggle("practice", !demo.on);
   $("#toyReplay").hidden = demo.on;
-  if (!demo.on) $("#tCap").innerHTML = "<b>Practice board.</b> Drag a dot and the center follows. The game hides it until you lock in.";
+  const cap = $("#tCap");
+  if (!cap.children.length) cap.innerHTML = DEMO_STEPS.concat([PRACTICE_CAP]).map(h => `<span>${h}</span>`).join("");
+  const showCap = demo.on ? Math.max(0, demo.step) : DEMO_STEPS.length;
+  [...cap.children].forEach((el, i) => el.classList.toggle("on", i === showCap));
   if (demo.on) {
     const segs = $("#tSteps").querySelectorAll(".tsegs i");
     segs.forEach((el, i) => el.classList.toggle("on", i <= demo.step));
-    $("#tCap").innerHTML = DEMO_STEPS[Math.max(0, demo.step)];
     toyEl.setAttribute("aria-label", "Demo of one round on a practice board: a few dots appear, a guess is aimed at their hidden center and locked in, then the true center and the score are revealed. Tap the board to try it yourself.");
   } else toyEl.setAttribute("aria-label", "Practice board. Drag a dot to move it. Tap a dot to select it, then change its weight. The center of mass moves with it.");
 }
