@@ -1579,7 +1579,7 @@ function renderHome() {
   const eg = state.games["endless:" + ed], live = eg && eg.phase !== "done" && eg.results.length > 0;
   html += `<div class="ecard"><div class="ec-head"><span class="ec-title">Endless</span><div class="seg small" id="ecDiff" role="group" aria-label="Endless difficulty">${DIFF_KEYS.map(k => `<button type="button" data-d="${k}" aria-pressed="${k === ed}">${DIFFS[k].label}</button>`).join("")}</div></div>
     <p class="ec-best">${e.runs ? `Best <b>${fmt(e.best)}</b> on ${DIFFS[ed].label}, furthest round <b>${e.bestRound}</b>.` : `No runs on ${DIFFS[ed].label} yet. Three lives, and later rounds make the dots vanish.`}</p>
-    <button class="btn block" id="ecGo">${live ? `Resume run, round ${eg.idx + 1}` : "Start a run"}</button></div>`;
+    <button class="btn primary block" id="ecGo">${live ? `Resume run, round ${eg.idx + 1}` : "Start a run"}</button></div>`;
   el.innerHTML = html;
   el.querySelectorAll(".dcard").forEach(c => c.addEventListener("click", () => playDaily(c.dataset.d)));
   const cta = $("#ctaBtn"); if (cta) cta.addEventListener("click", () => playDaily(next));
