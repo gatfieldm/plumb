@@ -266,6 +266,14 @@ button.brand{border:0;background:none;padding:0;cursor:pointer}
 .toy-hint{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);font-size:12px;color:var(--ink-2);background:var(--board);padding:1px 9px;border-radius:999px;border:1px solid var(--grid);pointer-events:none;transition:opacity .3s ease-in;white-space:nowrap}
 .toy-hint.gone{opacity:0}
 .home-main{display:flex;flex-direction:column;gap:14px}
+.tsteps{display:flex;flex-direction:column;gap:7px;width:min(100%,40vh,360px);width:min(100%,40svh,360px);margin:0 auto -4px}
+.tsteps.practice .tsegs{visibility:hidden}
+.tsegs{display:flex;gap:6px}
+.tsegs i{flex:1;height:4px;border-radius:2px;background:var(--grid-strong);transition:background .25s}
+.tsegs i.on{background:var(--ink)}
+.tcap{margin:0;font-size:14px;line-height:1.45;color:var(--ink);min-height:41px;text-wrap:pretty}
+.toy-replay{align-self:center;margin:-10px auto 0;border:0;background:none;padding:10px 12px;min-height:44px;font-size:13px;font-weight:600;color:var(--ink-2);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.toy-replay[hidden]{display:none}
 .cta{display:flex;flex-direction:column;gap:6px}
 .cta-sub{margin:0;text-align:center;font-size:13px;color:var(--ink-3)}
 .dailies{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
@@ -316,7 +324,7 @@ body.with-tabs .app{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
 .life.drain{animation:lifeDrain .55s ease-in}
 @keyframes lifeDrain{0%{background:var(--pen);border:0;transform:none}15%{transform:translateX(-3px)}30%{transform:translateX(3px)}45%{transform:translateX(-2px);background:var(--pen)}100%{transform:none}}
 
-@media (prefers-reduced-motion: reduce){.flash{transition:none}.dcard,.toy-hint,.btn{transition:none}.shake,.life.drain,.wslider.hint .ws-thumb{animation:none}.wslider{transition:none}}
+@media (prefers-reduced-motion: reduce){.flash{transition:none}.dcard,.toy-hint,.btn,.tsegs i{transition:none}.shake,.life.drain,.wslider.hint .ws-thumb{animation:none}.wslider{transition:none}}
 </style>
 
 <div class="app">
@@ -328,6 +336,7 @@ body.with-tabs .app{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
 
   <section id="home" class="home">
     <p class="greet" id="greet"></p>
+    <div class="tsteps" id="tSteps"><div class="tsegs" aria-hidden="true"><i></i><i></i><i></i></div><p class="tcap" id="tCap"></p></div>
     <div class="toy-row" id="toyRow">
       <div class="toy" id="toy" role="img" aria-label="Practice board. Drag a dot to move it. Tap a dot to select it, then change its weight. The center of mass moves with it."><canvas id="toyCv"></canvas></div>
       <div class="wslider off" id="wslider" role="slider" tabindex="0" aria-label="Weight of the selected dot" aria-valuemin="1" aria-valuemax="5" aria-valuenow="1" aria-disabled="true" hidden>
@@ -337,6 +346,7 @@ body.with-tabs .app{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
       </div>
     </div>
     <p class="toy-note" id="toyNote" aria-live="polite"></p>
+    <button class="toy-replay" id="toyReplay" type="button" hidden>Watch the demo again</button>
     <div class="home-main" id="homeMain"></div>
   </section>
 
@@ -1510,7 +1520,7 @@ function dotRange(d) { const a = DIFFS[d].daily; return Math.min(...a) + "–" +
 function greeting() {
   const p = state.profile, h = new Date().getHours();
   const part = h < 5 ? "Evening" : h < 12 ? "Morning" : h < 17 ? "Afternoon" : "Evening";
-  if (!p) return `<b>Find the balance point.</b> Drag a dot below and watch the center of mass follow.`;
+  if (!p) return `<b>Find the center of the dots.</b> Watch a round below, then tap the board to try it yourself.`;
   const streak = currentStreak(p), playedToday = p.daily.lastDate === ymd();
   const tail = streak === 0 ? "Start a streak today." : `${streak}-day streak${playedToday ? "." : ". Keep it going today."}`;
   return `${part}, <b>${esc(p.name)}</b>. ${tail}`;
@@ -1603,6 +1613,13 @@ function toyLoop(t) {
   toy.raf = 0;
   if (state.view !== "home" || document.hidden || !toy.TW) return;
   const rm = reduceMotion(), hands = toy.drag >= 0 || toy.pinch || toy.sliding;
+  if (demo.on) {
+    const dt = toy.last ? Math.min(0.05, (t - toy.last) / 1000) : 0.016; toy.last = t;
+    const save = [ctx, W]; ctx = tctx; W = toy.TW; let more = true;
+    try { more = drawDemo(t, dt, rm); } finally { [ctx, W] = save; }
+    if (more) toy.raf = requestAnimationFrame(toyLoop);
+    return;
+  }
   if (!hands && toy.last && t - toy.last < 30) { toy.raf = requestAnimationFrame(toyLoop); return; }   // idle: about 30 fps is plenty
   const dt = toy.last ? Math.min(0.05, (t - toy.last) / 1000) : 0.016; toy.last = t;
   const idle = !hands && t - (toy.activeAt || 0) > 7000;
@@ -1665,42 +1682,184 @@ function toyLoop(t) {
     }
     drawCoM(c.x * W, c.y * W, comR);
 
-    // "Center of Mass" label with a short arrow, placed in the diagonal with the most room.
-    ctx.font = '600 12px "Atkinson Hyperlegible", system-ui, sans-serif';
-    const lbl = "Center of Mass", lw = ctx.measureText(lbl).width, gap = comR + 24;
-    const cx = c.x * W, cy = c.y * W;
-    const obstacles = toy.pts.map(p => ({ x: p.x * W, y: p.y * W })).concat(tags);
-    const spot = d => {
-      const ax = cx + d[0] * gap * 0.75, ay = cy + d[1] * gap * 0.75;
-      const lx = d[0] > 0 ? ax + 4 : ax - lw - 4, ly = ay + (d[1] > 0 ? 9 : -9);
-      const mid = { x: lx + lw / 2, y: ly };
-      let score = Math.min(...obstacles.map(o => Math.hypot(o.x - mid.x, o.y - mid.y)));
-      if (lx < 4 || lx + lw > W - 4 || ly < 10 || ly > W - 10) score -= 400;
-      return score;
-    };
-    const DIRS = [[1, -1], [-1, -1], [1, 1], [-1, 1]];
-    const scores = DIRS.map(spot), best = scores.indexOf(Math.max(...scores));
-    if (toy.lblDir == null || scores[best] > scores[toy.lblDir] + 14) toy.lblDir = best;   // hysteresis so it doesn't flicker
-    const d = DIRS[toy.lblDir];
-    if (!toy.lbl || rm) toy.lbl = { x: d[0], y: d[1] };
-    else { const f = 1 - Math.exp(-dt * 10); toy.lbl.x += (d[0] - toy.lbl.x) * f; toy.lbl.y += (d[1] - toy.lbl.y) * f; }
-    settling = Math.abs(toy.lbl.x - d[0]) + Math.abs(toy.lbl.y - d[1]) > 0.01;
-    const L = Math.hypot(toy.lbl.x, toy.lbl.y) || 1, ux = toy.lbl.x / L, uy = toy.lbl.y / L;
-    const tipX = cx + ux * (comR + 4), tipY = cy + uy * (comR + 4);
-    const tailX = cx + ux * gap * 0.75, tailY = cy + uy * gap * 0.75;
-    ctx.strokeStyle = T["ink-2"]; ctx.fillStyle = T["ink-2"]; ctx.lineWidth = 1.25;
-    ctx.beginPath(); ctx.moveTo(tailX, tailY); ctx.lineTo(tipX + ux * 4, tipY + uy * 4); ctx.stroke();
-    const hs = 5, px = -uy, py = ux;
-    ctx.beginPath(); ctx.moveTo(tipX, tipY); ctx.lineTo(tipX + ux * hs * 1.4 + px * hs * 0.7, tipY + uy * hs * 1.4 + py * hs * 0.7); ctx.lineTo(tipX + ux * hs * 1.4 - px * hs * 0.7, tipY + uy * hs * 1.4 - py * hs * 0.7); ctx.closePath(); ctx.fill();
-    const lx = ux > 0 ? tailX + 4 : tailX - lw - 4, ly = tailY + (uy > 0 ? 8 : -8);
-    ctx.fillStyle = T.board; ctx.globalAlpha = 0.85; ctx.fillRect(lx - 3, ly - 8, lw + 6, 16); ctx.globalAlpha = 1;
-    ctx.fillStyle = T["ink-2"]; ctx.textBaseline = "middle"; ctx.fillText(lbl, lx, ly + 0.5);
+    settling = drawCenterLabel(c.x * W, c.y * W, comR, toy.pts.map(p => ({ x: p.x * W, y: p.y * W })).concat(tags), dt, rm, 1);
   } finally { [ctx, W] = save; }
   const fading = (toy.touched && t - toy.touchedAt < 400) || (toy.droppedAt && t - toy.droppedAt < 1700) || (toy.pinched && t - toy.pinchedAt < 400);
   // Keep animating only while something is moving or a tag is inviting a gesture; otherwise stop until the next touch.
   const inviting = !rm && (!toy.touched || (toy.droppedAt && toy.mode === "pinch" && toy.sel >= 0 && !toy.pinched));
   if (hands || settling || fading || inviting || toy.amp > 0.002 || (!idle && !rm)) toy.raf = requestAnimationFrame(toyLoop);
 }
+
+/* ---------- home demo: a looped, wordless round on a practice board (never today's boards) ---------- */
+// Step 1 shows the dots, step 2 a fingertip aims the marker and locks in, step 3 reveals the true center and a score.
+// Touching the board ends the demo and hands the same dots over to the drag-and-weigh practice board.
+const DEMO_STEPS = [
+  "<b>Step 1 of 3.</b> You get a few dots. Their center of mass is hidden.",
+  "<b>Step 2 of 3.</b> Drag to aim where the dots would balance, then lock in.",
+  "<b>Step 3 of 3.</b> Lines meet at the true center. The closer your guess, the more points, up to 100."
+];
+const DEMO_LEN = 8400, DEMO_MAX_LOOPS = 8;   // after 8 loops (about a minute) it rests on a reveal, to save battery
+const demo = { on: true, t0: 0, pts: [], c: null, g: null, s0: null, mid: null, score: 0, n: 0, step: -1, loops: 0 };
+function demoSeed(t) {
+  const n = [3, 4, 3, 5][demo.n++ % 4];
+  demo.pts = genPoints(n, Math.random, false).map(p => ({ x: p.x, y: p.y, m: 1 }));
+  demo.c = centroid(demo.pts);
+  const a = Math.random() * Math.PI * 2, d = 0.012 + Math.random() * 0.03;   // a good but not perfect guess
+  demo.g = { x: clamp(demo.c.x + Math.cos(a) * d, 0.05, 0.95), y: clamp(demo.c.y + Math.sin(a) * d, 0.05, 0.95) };
+  demo.score = scoreFor(Math.hypot(demo.g.x - demo.c.x, demo.g.y - demo.c.y));
+  // The aim comes in from low and to one side, where a thumb starts, and overshoots a little before settling.
+  const side = demo.g.x > 0.5 ? -1 : 1;
+  demo.s0 = { x: clamp(demo.g.x + side * (0.16 + Math.random() * 0.12), 0.1, 0.9), y: clamp(demo.g.y + 0.14 + Math.random() * 0.1, 0.12, 0.78) };
+  demo.mid = { x: demo.g.x + (demo.g.x - demo.s0.x) * 0.1, y: demo.g.y + (demo.g.y - demo.s0.y) * 0.1 };
+  demo.t0 = t; toy.lbl = null; toy.lblDir = null;
+}
+const easeInOut = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const lerpP = (a, b, k) => ({ x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k });
+function drawDemo(t, dt, rm) {
+  if (!demo.pts.length) demoSeed(t);
+  let k = t - demo.t0;
+  const resting = demo.loops >= DEMO_MAX_LOOPS;
+  if (resting) k = Math.min(k, 6400);
+  else if (k >= DEMO_LEN) { demo.loops++; demoSeed(t); k = 0; }
+  const step = k < 1500 ? 0 : k < 3900 ? 1 : 2;
+  if (step !== demo.step) { demo.step = step; demoSyncUI(); }
+  const fade = rm ? (k < DEMO_LEN - 500 || resting ? 1 : 0) : Math.min(clamp(k / 400), resting ? 1 : 1 - clamp((k - (DEMO_LEN - 500)) / 500));
+  const TW = W, c = demo.c, comR = Math.max(8, TW * 0.03), dotR = Math.max(6, TW * 0.024), P = v => v * W;
+  ctx.clearRect(0, 0, W, W); drawBoard(true);
+  ctx.globalAlpha = fade;
+  // Reveal lines grow from each dot into the center, one after another.
+  const R0 = 3900, tc = R0 + demo.pts.length * 100 + 350;
+  if (k >= R0) {
+    ctx.strokeStyle = T["ink-3"]; ctx.lineWidth = 1.25;
+    demo.pts.forEach((p, i) => {
+      const q = rm ? 1 : easeOut(clamp((k - R0 - i * 100) / 450)); if (q <= 0) return;
+      ctx.beginPath(); ctx.moveTo(P(p.x), P(p.y)); ctx.lineTo(P(p.x + (c.x - p.x) * q), P(p.y + (c.y - p.y) * q)); ctx.stroke();
+    });
+  }
+  // Aim: where the marker is at this moment.
+  let aim = demo.s0;
+  if (rm) aim = demo.g;
+  else if (k >= 3300) aim = demo.g;
+  else if (k >= 2800) aim = lerpP(demo.mid, demo.g, easeOut((k - 2800) / 500));
+  else if (k >= 1700) aim = lerpP(demo.s0, demo.mid, easeInOut((k - 1700) / 1100));
+  const ax = P(aim.x), ay = P(aim.y);
+  if (k >= tc + 250) {   // dashed miss line from the guess to the true center
+    const q = rm ? 1 : easeOut(clamp((k - tc - 250) / 300));
+    ctx.strokeStyle = T.pen; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ax + (P(c.x) - ax) * q, ay + (P(c.y) - ay) * q); ctx.stroke(); ctx.setLineDash([]);
+  }
+  demo.pts.forEach(p => { drawDot(P(p.x), P(p.y), dotR, 0, fade); });
+  ctx.globalAlpha = fade;
+  if (k >= tc) drawCoM(P(c.x), P(c.y), comR, rm ? 1 : easeBack(clamp((k - tc) / 300)));
+  // Fingertip, floating below the marker the way the real touch controls work, with a dotted line up to the marker.
+  const fa = rm ? (k >= 1500 && k < 3600 ? 1 : 0) : Math.min(clamp((k - 1500) / 200), 1 - clamp((k - 3600) / 200));
+  if (fa > 0) {
+    const fx = ax, fy = ay + TOUCH_LIFT;
+    ctx.globalAlpha = fade * fa;
+    ctx.strokeStyle = T.pen; ctx.lineWidth = 1.25; ctx.setLineDash([2, 4]);
+    ctx.beginPath(); ctx.moveTo(ax, ay + 12); ctx.lineTo(fx, fy - 15); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = T.ink; ctx.globalAlpha = fade * fa * 0.13;
+    ctx.beginPath(); if (ctx.ellipse) ctx.ellipse(fx, fy, 13, 15, 0, 0, Math.PI * 2); else ctx.arc(fx, fy, 14, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = fade * fa * 0.4; ctx.strokeStyle = T.ink; ctx.lineWidth = 1;
+    ctx.beginPath(); if (ctx.ellipse) ctx.ellipse(fx, fy, 13, 15, 0, 0, Math.PI * 2); else ctx.arc(fx, fy, 14, 0, Math.PI * 2); ctx.stroke();
+  }
+  // The marker itself, with a small pop when it locks in.
+  const ma = rm ? (k >= 1500 ? 1 : 0) : clamp((k - 1500) / 200);
+  if (ma > 0) {
+    let r = 9; if (!rm && k >= 3600) r *= 1 + 0.18 * (1 - easeOut(clamp((k - 3600) / 160)));
+    ctx.globalAlpha = fade * ma;
+    ctx.strokeStyle = T.pen; ctx.lineWidth = 2.25; ctx.beginPath(); ctx.arc(ax, ay, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = T.pen; ctx.beginPath(); ctx.arc(ax, ay, 2.4, 0, Math.PI * 2); ctx.fill();
+  }
+  const obstacles = demo.pts.map(p => ({ x: P(p.x), y: P(p.y) })).concat([{ x: ax, y: ay }]);
+  // Score tile, on the side of the guess away from the center.
+  const sa = rm ? (k >= tc + 550 ? 1 : 0) : clamp((k - tc - 550) / 200);
+  if (sa > 0) {
+    let ux = ax - P(c.x), uy = ay - P(c.y); const L = Math.hypot(ux, uy);
+    if (L < 2) { ux = -0.7; uy = 0.7; } else { ux /= L; uy /= L; }
+    const txt = String(demo.score);
+    ctx.font = '600 18px "Jost", "Futura", "Avenir Next", sans-serif';
+    const tw = ctx.measureText(txt).width + 16, th = 26, sc = rm ? 1 : easeBack(clamp((k - tc - 550) / 260));
+    const mx = clamp(ax + ux * 30, tw / 2 + 4, W - tw / 2 - 4), my = clamp(ay + uy * 30, th / 2 + 4, W - th / 2 - 4);
+    ctx.save(); ctx.globalAlpha = fade * sa; ctx.translate(mx, my); ctx.scale(sc, sc);
+    ctx.fillStyle = tierColor(demo.score); ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(-tw / 2, -th / 2, tw, th, 5); else ctx.rect(-tw / 2, -th / 2, tw, th); ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(txt, 0, 1); ctx.textAlign = "start";
+    ctx.restore();
+    obstacles.push({ x: mx, y: my });
+  }
+  let settling = false;
+  const la = rm ? (k >= tc + 700 ? 1 : 0) : clamp((k - tc - 700) / 300);
+  if (la > 0) settling = drawCenterLabel(P(c.x), P(c.y), comR, obstacles, dt, rm, fade * la);
+  ctx.globalAlpha = 1;
+  // Keep going while the loop runs; once it rests, stop as soon as the label has settled.
+  return !resting || k < 6400 || settling;
+}
+// Two-line callout on the center: what it is, and that the real game hides it. Placed in the diagonal with the most room.
+function drawCenterLabel(cx, cy, comR, obstacles, dt, rm, alpha) {
+  const l1 = "Center of mass", l2 = "Hidden in the game";
+  ctx.font = '700 13px "Atkinson Hyperlegible", system-ui, sans-serif'; const w1 = ctx.measureText(l1).width;
+  ctx.font = '400 12px "Atkinson Hyperlegible", system-ui, sans-serif'; const w2 = ctx.measureText(l2).width;
+  const bw = Math.max(w1, w2) + 18, bh = 40, gap = comR + 26;
+  const boxAt = (ux, uy) => {
+    const tx = cx + ux * gap * 0.75, ty = cy + uy * gap * 0.75;
+    return { x: ux > 0 ? tx + 2 : tx - bw - 2, y: uy > 0 ? ty - 6 : ty - bh + 6 };
+  };
+  const spot = d => {
+    const b = boxAt(d[0] / Math.SQRT2, d[1] / Math.SQRT2), mid = { x: b.x + bw / 2, y: b.y + bh / 2 };
+    let score = Math.min(...obstacles.map(o => Math.hypot(o.x - mid.x, o.y - mid.y)));
+    if (b.x < 4 || b.x + bw > W - 4 || b.y < 4 || b.y + bh > W - 4) score -= 400;
+    return score;
+  };
+  const DIRS = [[1, -1], [-1, -1], [1, 1], [-1, 1]];
+  const scores = DIRS.map(spot), best = scores.indexOf(Math.max(...scores));
+  if (toy.lblDir == null || scores[best] > scores[toy.lblDir] + 14) toy.lblDir = best;   // hysteresis so it doesn't flicker
+  const d = DIRS[toy.lblDir];
+  if (!toy.lbl || rm) toy.lbl = { x: d[0], y: d[1] };
+  else { const f = 1 - Math.exp(-dt * 10); toy.lbl.x += (d[0] - toy.lbl.x) * f; toy.lbl.y += (d[1] - toy.lbl.y) * f; }
+  const settling = Math.abs(toy.lbl.x - d[0]) + Math.abs(toy.lbl.y - d[1]) > 0.01;
+  const L = Math.hypot(toy.lbl.x, toy.lbl.y) || 1, ux = toy.lbl.x / L, uy = toy.lbl.y / L;
+  const b = boxAt(ux, uy);
+  const bx = clamp(b.x, 4, W - bw - 4), by = clamp(b.y, 4, W - bh - 4);
+  ctx.save(); ctx.globalAlpha = alpha;
+  // short pointer from the box corner nearest the center
+  const px = ux > 0 ? bx : bx + bw, py = uy > 0 ? by : by + bh;
+  const tipX = cx + ux * (comR + 3), tipY = cy + uy * (comR + 3);
+  ctx.strokeStyle = T.ink; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(tipX, tipY); ctx.stroke();
+  ctx.fillStyle = T.ink; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(bx, by, bw, bh, 6); else ctx.rect(bx, by, bw, bh); ctx.fill();
+  ctx.fillStyle = T.board; ctx.textBaseline = "middle";
+  ctx.font = '700 13px "Atkinson Hyperlegible", system-ui, sans-serif'; ctx.fillText(l1, bx + 9, by + 13);
+  ctx.font = '400 12px "Atkinson Hyperlegible", system-ui, sans-serif'; ctx.fillText(l2, bx + 9, by + 28);
+  ctx.restore();
+  return settling;
+}
+function demoSyncUI() {
+  // The step bar keeps its space after the demo (its caption changes), so the board never jumps under a finger.
+  $("#tSteps").classList.toggle("practice", !demo.on);
+  $("#toyReplay").hidden = demo.on;
+  if (!demo.on) $("#tCap").innerHTML = "<b>Practice board.</b> Drag a dot and the center follows. The game hides it until you lock in.";
+  if (demo.on) {
+    const segs = $("#tSteps").querySelectorAll(".tsegs i");
+    segs.forEach((el, i) => el.classList.toggle("on", i <= demo.step));
+    $("#tCap").innerHTML = DEMO_STEPS[Math.max(0, demo.step)];
+    toyEl.setAttribute("aria-label", "Demo of one round on a practice board: a few dots appear, a guess is aimed at their hidden center and locked in, then the true center and the score are revealed. Tap the board to try it yourself.");
+  } else toyEl.setAttribute("aria-label", "Practice board. Drag a dot to move it. Tap a dot to select it, then change its weight. The center of mass moves with it.");
+}
+// Ends the demo and keeps its dots, so the board doesn't jump under the player's finger.
+function demoStop() {
+  if (!demo.on) return;
+  demo.on = false;
+  toy.pts = demo.pts.map(p => ({ ax: p.x, ay: p.y, x: p.x, y: p.y, m: 1, ph: Math.random() * 6.28, ph2: Math.random() * 6.28 }));
+  toy.hintIdx = toy.pts.reduce((bi, p, i, a) => p.y > a[bi].y ? i : bi, 0);
+  toy.lbl = null; toy.lblDir = null; toy.sel = -1; toy.amp = 0; toy.last = 0;
+  demoSyncUI(); toySyncUI();
+}
+function demoStart() {
+  demo.on = true; demo.loops = 0; demo.step = -1;
+  toy.sel = -1; toy.drag = -1; toy.press = null; toy.pinch = null; toy.sliding = false; toyEl.classList.remove("dragging");
+  demoSeed(performance.now()); demoSyncUI(); toySyncUI(); toyStart();
+}
+$("#toyReplay").addEventListener("click", demoStart);
 function toyPoint(e) { const r = toyEl.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }; }
 // A dot counts as touched within its radius plus a finger's width, so taps never land on the wrong dot.
 function hitDot(q) {
@@ -1740,7 +1899,8 @@ function toySyncUI() {
   $("#wsFill").style.height = (has ? k * 100 : 0) + "%"; $("#wsThumb").style.top = (has ? (1 - k) * 100 : 100) + "%";
   const how = sl ? "Use the slider or scroll over it to change it." : "Pinch anywhere to change it.";
   let note = "";
-  if (performance.now() < toy.nudgeUntil) note = sl ? "Click a dot first to select it." : "Tap a dot first to select it.";
+  if (demo.on) note = sl ? "Click the board to try it yourself." : "Tap the board to try it yourself.";
+  else if (performance.now() < toy.nudgeUntil) note = sl ? "Click a dot first to select it." : "Tap a dot first to select it.";
   else if (has) note = `Selected dot weighs <b>${w.toFixed(1)}</b>. ${how}`;
   else if (toy.touched) note = sl ? "Click a dot to select it, then use the slider to change its weight." : "Tap a dot to select it, then pinch anywhere to change its weight.";
   if (note !== noteCache) { $("#toyNote").innerHTML = note; noteCache = note; }
@@ -1748,6 +1908,7 @@ function toySyncUI() {
 
 // One finger: a short tap selects a dot (or clears the selection on empty space); moving more than 6 px drags it.
 function toyDown(e) {
+  if (demo.on) demoStop();
   const q = toyPoint(e), i = hitDot(q);
   toy.press = { i, x: e.clientX, y: e.clientY, moved: false, off: i >= 0 ? { x: toy.pts[i].ax - q.x, y: toy.pts[i].ay - q.y } : null };
 }
@@ -1827,7 +1988,7 @@ wsEl.addEventListener("keydown", e => {
 
 // On a computer: trackpad pinch anywhere on the board, or the mouse wheel over the selected dot.
 toyEl.addEventListener("wheel", e => {
-  if (toy.sel < 0) return;
+  if (demo.on || toy.sel < 0) return;
   const q = toyPoint(e), p = toy.pts[toy.sel];
   if (!e.ctrlKey && Math.hypot(p.x - q.x, p.y - q.y) > 0.1) return;   // ordinary scrolling elsewhere still scrolls the page
   e.preventDefault();
@@ -1917,7 +2078,7 @@ function start(data) {
   if (data && data.games && state.profile && data.pid === state.profile.id) {
     for (const [k, g] of Object.entries(data.games)) { if (g && g.mode === "endless" && g.phase !== "done") { g.revealAt = 0; if (g.rounds[g.idx]) g.rounds[g.idx].shownAt = performance.now(); state.games[k] = g; } }
   }
-  toySeed(); toySyncUI();
+  toySeed(); demoSyncUI(); toySyncUI();
   setView(data && data.view && state.profile ? data.view : "home");
 }
 const hot = window.claude && window.claude.hot;
