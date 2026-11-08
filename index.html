@@ -342,7 +342,7 @@ body.with-tabs .app{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
 
   <section id="home" class="home">
     <p class="greet" id="greet"></p>
-    <div class="tsteps" id="tSteps"><div class="tsegs" aria-hidden="true"><i></i><i></i><i></i></div><p class="tcap" id="tCap"></p></div>
+    <div class="tsteps" id="tSteps"><div class="tsegs" aria-hidden="true"><i></i><i></i></div><p class="tcap" id="tCap"></p></div>
     <div class="toy-row" id="toyRow">
       <div class="toy" id="toy" role="img" aria-label="Practice board. Drag a dot to move it. Tap a dot to select it, then change its weight. The center of mass moves with it."><canvas id="toyCv"></canvas></div>
       <div class="wslider off" id="wslider" role="slider" tabindex="0" aria-label="Weight of the selected dot" aria-valuemin="1" aria-valuemax="5" aria-valuenow="1" aria-disabled="true" hidden>
@@ -1724,15 +1724,14 @@ function toyLoop(t) {
 }
 
 /* ---------- home demo: a looped, wordless round on a practice board (never today's boards) ---------- */
-// Step 1 shows the dots, step 2 a fingertip aims the marker and locks in, step 3 reveals the true center and a score.
+// Step 1: the dots appear and a fingertip aims the marker and locks in. Step 2: the true center and a score are revealed.
 // Touching the board ends the demo and hands the same dots over to the drag-and-weigh practice board.
 const DEMO_STEPS = [
-  "<b>Step 1 of 3.</b> You get a few dots. Their center of mass is hidden.",
-  "<b>Step 2 of 3.</b> Drag to aim where the dots would balance, then lock in.",
-  "<b>Step 3 of 3.</b> Lines meet at the true center. The closer your guess, the more points, up to 100."
+  "<b>Step 1 of 2.</b> The center of the dots is hidden. Drag to aim where they would balance, then lock in.",
+  "<b>Step 2 of 2.</b> Lines meet at the true center. The closer your guess, the more points, up to 100."
 ];
 const PRACTICE_CAP = "<b>Practice board.</b> Drag a dot and the center follows. The game hides it until you lock in.";
-const DEMO_LEN = 8400, DEMO_MAX_LOOPS = 8;   // after 8 loops (about a minute) it rests on a reveal, to save battery
+const DEMO_LEN = 7400, DEMO_MAX_LOOPS = 8;   // after 8 loops (about a minute) it rests on a reveal, to save battery
 const demo = { on: true, t0: 0, pts: [], c: null, g: null, s0: null, mid: null, score: 0, n: 0, step: -1, loops: 0 };
 function demoSeed(t) {
   const n = [3, 4, 3, 5][demo.n++ % 4];
@@ -1753,16 +1752,16 @@ function drawDemo(t, dt, rm) {
   if (!demo.pts.length) demoSeed(t);
   let k = t - demo.t0;
   const resting = demo.loops >= DEMO_MAX_LOOPS;
-  if (resting) k = Math.min(k, 6400);
+  if (resting) k = Math.min(k, 5400);
   else if (k >= DEMO_LEN) { demo.loops++; demoSeed(t); k = 0; }
-  const step = k < 1500 ? 0 : k < 3900 ? 1 : 2;
+  const step = k < 2900 ? 0 : 1;
   if (step !== demo.step) { demo.step = step; demoSyncUI(); }
   const fade = rm ? (k < DEMO_LEN - 500 || resting ? 1 : 0) : Math.min(clamp(k / 400), resting ? 1 : 1 - clamp((k - (DEMO_LEN - 500)) / 500));
   const TW = W, c = demo.c, comR = Math.max(8, TW * 0.03), dotR = Math.max(6, TW * 0.024), P = v => v * W;
   ctx.clearRect(0, 0, W, W); drawBoard(true);
   ctx.globalAlpha = fade;
   // Reveal lines grow from each dot into the center, one after another.
-  const R0 = 3900, tc = R0 + demo.pts.length * 100 + 350;
+  const R0 = 2900, tc = R0 + demo.pts.length * 100 + 350;
   if (k >= R0) {
     ctx.strokeStyle = T["ink-3"]; ctx.lineWidth = 1.25;
     demo.pts.forEach((p, i) => {
@@ -1773,9 +1772,9 @@ function drawDemo(t, dt, rm) {
   // Aim: where the marker is at this moment.
   let aim = demo.s0;
   if (rm) aim = demo.g;
-  else if (k >= 3300) aim = demo.g;
-  else if (k >= 2800) aim = lerpP(demo.mid, demo.g, easeOut((k - 2800) / 500));
-  else if (k >= 1700) aim = lerpP(demo.s0, demo.mid, easeInOut((k - 1700) / 1100));
+  else if (k >= 2300) aim = demo.g;
+  else if (k >= 1800) aim = lerpP(demo.mid, demo.g, easeOut((k - 1800) / 500));
+  else if (k >= 700) aim = lerpP(demo.s0, demo.mid, easeInOut((k - 700) / 1100));
   const ax = P(aim.x), ay = P(aim.y);
   if (k >= tc + 250) {   // dashed miss line from the guess to the true center
     const q = rm ? 1 : easeOut(clamp((k - tc - 250) / 300));
@@ -1786,7 +1785,7 @@ function drawDemo(t, dt, rm) {
   ctx.globalAlpha = fade;
   if (k >= tc) drawCoM(P(c.x), P(c.y), comR, rm ? 1 : easeBack(clamp((k - tc) / 300)));
   // Fingertip, floating below the marker the way the real touch controls work, with a dotted line up to the marker.
-  const fa = rm ? (k >= 1500 && k < 3600 ? 1 : 0) : Math.min(clamp((k - 1500) / 200), 1 - clamp((k - 3600) / 200));
+  const fa = rm ? (k >= 500 && k < 2600 ? 1 : 0) : Math.min(clamp((k - 500) / 200), 1 - clamp((k - 2600) / 200));
   if (fa > 0) {
     const fx = ax, fy = ay + TOUCH_LIFT;
     ctx.globalAlpha = fade * fa;
@@ -1798,9 +1797,9 @@ function drawDemo(t, dt, rm) {
     ctx.beginPath(); if (ctx.ellipse) ctx.ellipse(fx, fy, 13, 15, 0, 0, Math.PI * 2); else ctx.arc(fx, fy, 14, 0, Math.PI * 2); ctx.stroke();
   }
   // The marker itself, with a small pop when it locks in.
-  const ma = rm ? (k >= 1500 ? 1 : 0) : clamp((k - 1500) / 200);
+  const ma = rm ? (k >= 500 ? 1 : 0) : clamp((k - 500) / 200);
   if (ma > 0) {
-    let r = 9; if (!rm && k >= 3600) r *= 1 + 0.18 * (1 - easeOut(clamp((k - 3600) / 160)));
+    let r = 9; if (!rm && k >= 2600) r *= 1 + 0.18 * (1 - easeOut(clamp((k - 2600) / 160)));
     ctx.globalAlpha = fade * ma;
     ctx.strokeStyle = T.pen; ctx.lineWidth = 2.25; ctx.beginPath(); ctx.arc(ax, ay, r, 0, Math.PI * 2); ctx.stroke();
     ctx.fillStyle = T.pen; ctx.beginPath(); ctx.arc(ax, ay, 2.4, 0, Math.PI * 2); ctx.fill();
@@ -1826,7 +1825,7 @@ function drawDemo(t, dt, rm) {
   if (la > 0) settling = drawCenterLabel(P(c.x), P(c.y), comR, obstacles, dt, rm, fade * la);
   ctx.globalAlpha = 1;
   // Keep going while the loop runs; once it rests, stop as soon as the label has settled.
-  return !resting || k < 6400 || settling;
+  return !resting || k < 5400 || settling;
 }
 // Two-line callout on the center: what it is, and that the real game hides it. Placed in the diagonal with the most room.
 function drawCenterLabel(cx, cy, comR, obstacles, dt, rm, alpha) {
@@ -1872,9 +1871,11 @@ function demoSyncUI() {
   $("#tSteps").classList.toggle("practice", mode !== "demo");
   const cap = $("#tCap");
   if (!cap.children.length) cap.innerHTML = DEMO_STEPS.concat([PRACTICE_CAP, ""]).map(h => `<span>${h}</span>`).join("");
-  if (cap.children[4].innerHTML !== hero.cap) cap.children[4].innerHTML = hero.cap;
-  const showCap = mode === "demo" ? Math.max(0, demo.step) : mode === "practice" ? 3 : 4;
+  const sumCap = cap.children[DEMO_STEPS.length + 1];
+  if (sumCap.innerHTML !== hero.cap) sumCap.innerHTML = hero.cap;
+  const showCap = mode === "demo" ? Math.max(0, demo.step) : mode === "practice" ? DEMO_STEPS.length : DEMO_STEPS.length + 1;
   [...cap.children].forEach((el, i) => el.classList.toggle("on", i === showCap));
+  $("#tSteps").querySelectorAll(".tsegs i").forEach((el, i) => el.classList.toggle("on", mode === "demo" && i <= demo.step));
   const replay = $("#toyReplay"), mine = $("#toyMine");
   replay.hidden = mode === "demo"; replay.textContent = mode === "sum" ? "Watch the demo" : "Watch the demo again";
   const key = heroSummaryKey();
